@@ -91,7 +91,87 @@ export default function HistoryPage() {
   )
 }
 
+// ── 필터 바 ──────────────────────────────────────────────
+function FilterBar({
+  years, months, selectedYear, selectedMonth,
+  onYearChange, onMonthChange,
+  typeOptions, selectedType, onTypeChange,
+  resultCount,
+}: {
+  years: number[]
+  months: number[]
+  selectedYear: number | null
+  selectedMonth: number | null
+  onYearChange: (y: number | null) => void
+  onMonthChange: (m: number | null) => void
+  typeOptions?: { label: string; value: string }[]
+  selectedType?: string
+  onTypeChange?: (t: string) => void
+  resultCount: number
+}) {
+  return (
+    <div style={{ background: '#fff', borderBottom: '1px solid #f0f0f0', padding: '10px 16px' }}>
+      {/* 년도 */}
+      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 6, scrollbarWidth: 'none' }}>
+        <Chip label="전체" active={selectedYear === null}
+          onClick={() => { onYearChange(null); onMonthChange(null) }} />
+        {years.map(y => (
+          <Chip key={y} label={`${y}년`} active={selectedYear === y}
+            onClick={() => { onYearChange(y); onMonthChange(null) }} />
+        ))}
+      </div>
+
+      {/* 월 (년도 선택 시) */}
+      {selectedYear !== null && months.length > 0 && (
+        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 6, marginTop: 6, scrollbarWidth: 'none' }}>
+          <Chip label="전월" active={selectedMonth === null} onClick={() => onMonthChange(null)} />
+          {months.map(m => (
+            <Chip key={m} label={`${m}월`} active={selectedMonth === m}
+              onClick={() => onMonthChange(m)} />
+          ))}
+        </div>
+      )}
+
+      {/* 타입 필터 */}
+      {typeOptions && onTypeChange && (
+        <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+          {typeOptions.map(opt => (
+            <Chip key={opt.value} label={opt.label} active={selectedType === opt.value}
+              onClick={() => onTypeChange(opt.value)} />
+          ))}
+        </div>
+      )}
+
+      {/* 결과 수 */}
+      <p style={{ fontSize: 11, color: '#aaa', marginTop: 6 }}>{resultCount}개</p>
+    </div>
+  )
+}
+
+function Chip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        flexShrink: 0, height: 26, padding: '0 10px',
+        background: active ? '#129f97' : '#f5f5f5',
+        color: active ? '#fff' : '#555',
+        fontSize: 12, fontWeight: active ? 700 : 400,
+        border: 'none', borderRadius: 13, cursor: 'pointer',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {label}
+    </button>
+  )
+}
+
+// ── 저장 번호 ──────────────────────────────────────────────
 function SavedNumbers() {
+  const [filterYear, setFilterYear] = useState<number | null>(null)
+  const [filterMonth, setFilterMonth] = useState<number | null>(null)
+  const [filterType, setFilterType] = useState<string>('all')
+
   const { data, isLoading } = useQuery({
     queryKey: ['savedNumbers'],
     queryFn: async () => {
@@ -105,30 +185,74 @@ function SavedNumbers() {
     <EmptyState message="저장된 번호가 없어요" sub="번호 생성 탭에서 번호를 뽑아보세요" />
   )
 
+  // 사용 가능한 년도/월 추출
+  const years: number[] = Array.from(
+    new Set(data.map((d: any) => new Date(d.createdAt).getFullYear()))
+  ).sort((a: any, b: any) => b - a) as number[]
+
+  const months: number[] = filterYear
+    ? Array.from(
+        new Set(
+          data
+            .filter((d: any) => new Date(d.createdAt).getFullYear() === filterYear)
+            .map((d: any) => new Date(d.createdAt).getMonth() + 1)
+        )
+      ).sort((a: any, b: any) => a - b) as number[]
+    : []
+
+  // 필터 적용
+  const filtered = data.filter((item: any) => {
+    const d = new Date(item.createdAt)
+    if (filterYear && d.getFullYear() !== filterYear) return false
+    if (filterMonth && d.getMonth() + 1 !== filterMonth) return false
+    if (filterType === 'auto' && item.isManual) return false
+    if (filterType === 'manual' && !item.isManual) return false
+    return true
+  })
+
   return (
     <div>
-      {data.map((item: any) => (
-        <div key={item.id} style={{
-          background: '#fff',
-          borderBottom: '1px solid #f0f0f0',
-          padding: '12px 16px',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontSize: 12, color: '#888' }}>
-              {item.drawRound ? `${item.drawRound}회차` : '회차 미지정'}
-              {' · '}
-              {new Date(item.createdAt).toLocaleDateString('ko-KR')}
-            </span>
-            <span style={{
-              fontSize: 11, fontWeight: 600,
-              color: item.isManual ? '#e4a816' : '#007bc3',
-            }}>
-              {item.isManual ? '수동' : '추천'}
-            </span>
+      <FilterBar
+        years={years} months={months}
+        selectedYear={filterYear} selectedMonth={filterMonth}
+        onYearChange={setFilterYear} onMonthChange={setFilterMonth}
+        typeOptions={[
+          { label: '전체', value: 'all' },
+          { label: '추천', value: 'auto' },
+          { label: '수동', value: 'manual' },
+        ]}
+        selectedType={filterType}
+        onTypeChange={setFilterType}
+        resultCount={filtered.length}
+      />
+
+      {filtered.length === 0 ? (
+        <EmptyState message="해당 조건의 번호가 없어요" />
+      ) : (
+        filtered.map((item: any) => (
+          <div key={item.id} style={{
+            background: '#fff',
+            borderBottom: '1px solid #f0f0f0',
+            padding: '12px 16px',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontSize: 12, color: '#888' }}>
+                {item.drawRound ? `${item.drawRound}회차` : '회차 미지정'}
+                {' · '}
+                {new Date(item.createdAt).toLocaleDateString('ko-KR')}
+              </span>
+              <span style={{
+                fontSize: 11, fontWeight: 600,
+                color: item.isManual ? '#e4a816' : '#007bc3',
+              }}>
+                {item.isManual ? '수동' : '추천'}
+              </span>
+            </div>
+            <LottoBallSet numbers={item.numbers} size="sm" />
           </div>
-          <LottoBallSet numbers={item.numbers} size="sm" />
-        </div>
-      ))}
+        ))
+      )}
+
       <NumberStats />
       <div style={{ padding: '0 16px', marginTop: 8 }}>
         <AdSlot />
@@ -169,8 +293,6 @@ function NumberStats() {
       {/* ── 번호 통계 ── */}
       <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', padding: '14px 16px' }}>
         <p style={{ fontSize: 13, fontWeight: 700, color: '#333', marginBottom: 12 }}>📊 번호 통계</p>
-
-        {/* 요약 */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
           {[
             { label: '총 세트', value: stats.total },
@@ -186,8 +308,6 @@ function NumberStats() {
             </div>
           ))}
         </div>
-
-        {/* 자주 뽑힌 번호 */}
         <p style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>자주 뽑힌 번호</p>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
           {stats.topNumbers.map(({ num, count }: { num: number; count: number }) => (
@@ -207,13 +327,11 @@ function NumberStats() {
             <span style={{ fontSize: 11, fontWeight: 500, color: '#888', marginLeft: 8 }}>총 {totalWins}회</span>
           )}
         </p>
-
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {[1, 2, 3, 4, 5].map(rank => {
             const entries: any[] = stats.rankSummary[rank] ?? []
             const count = entries.length
             const isExpanded = expandedRank === rank
-
             return (
               <div key={rank}>
                 <button
@@ -241,8 +359,6 @@ function NumberStats() {
                     </svg>
                   )}
                 </button>
-
-                {/* 당첨 상세 */}
                 {isExpanded && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6, paddingLeft: 4 }}>
                     {entries.map((entry: any) => {
@@ -254,16 +370,9 @@ function NumberStats() {
                           background: '#f7fbff', border: '1px solid #c5dcf0', borderRadius: 4,
                         }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: '#333' }}>
-                              제{entry.drawRound}회
-                            </span>
-                            <span style={{ fontSize: 11, color: '#888' }}>
-                              {entry.drawDate.slice(0, 10).replace(/-/g, '.')}
-                            </span>
-                            <span style={{
-                              marginLeft: 'auto', fontSize: 10, fontWeight: 600,
-                              color: entry.isManual ? '#e4a816' : '#007bc3',
-                            }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: '#333' }}>제{entry.drawRound}회</span>
+                            <span style={{ fontSize: 11, color: '#888' }}>{entry.drawDate.slice(0, 10).replace(/-/g, '.')}</span>
+                            <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 600, color: entry.isManual ? '#e4a816' : '#007bc3' }}>
                               {entry.isManual ? '수동' : '추천'}
                             </span>
                           </div>
@@ -272,12 +381,7 @@ function NumberStats() {
                           </p>
                           <LottoBallSet numbers={entry.numbers} matchedNumbers={myMatched} size="sm" />
                           <p style={{ fontSize: 11, color: '#888', marginTop: 8, marginBottom: 4 }}>당첨번호</p>
-                          <LottoBallSet
-                            numbers={entry.drawNumbers}
-                            bonus={entry.bonus}
-                            matchedNumbers={myMatched}
-                            size="sm"
-                          />
+                          <LottoBallSet numbers={entry.drawNumbers} bonus={entry.bonus} matchedNumbers={myMatched} size="sm" />
                         </div>
                       )
                     })}
@@ -292,7 +396,11 @@ function NumberStats() {
   )
 }
 
+// ── 스캔 이력 ──────────────────────────────────────────────
 function ScanHistory() {
+  const [filterYear, setFilterYear] = useState<number | null>(null)
+  const [filterMonth, setFilterMonth] = useState<number | null>(null)
+
   const { data, isLoading } = useQuery({
     queryKey: ['scanHistory'],
     queryFn: async () => {
@@ -306,18 +414,48 @@ function ScanHistory() {
     <EmptyState message="스캔 이력이 없어요" sub="QR 당첨 확인 탭에서 복권을 스캔해보세요" />
   )
 
-  const totalPrize = data.reduce((s: number, d: any) => s + Number(d.totalPrize), 0)
-  const winCount = data.filter((d: any) => Number(d.totalPrize) > 0).length
+  // 사용 가능한 년도/월 추출
+  const years: number[] = Array.from(
+    new Set(data.map((d: any) => new Date(d.scannedAt).getFullYear()))
+  ).sort((a: any, b: any) => b - a) as number[]
+
+  const months: number[] = filterYear
+    ? Array.from(
+        new Set(
+          data
+            .filter((d: any) => new Date(d.scannedAt).getFullYear() === filterYear)
+            .map((d: any) => new Date(d.scannedAt).getMonth() + 1)
+        )
+      ).sort((a: any, b: any) => a - b) as number[]
+    : []
+
+  // 필터 적용
+  const filtered = data.filter((scan: any) => {
+    const d = new Date(scan.scannedAt)
+    if (filterYear && d.getFullYear() !== filterYear) return false
+    if (filterMonth && d.getMonth() + 1 !== filterMonth) return false
+    return true
+  })
+
+  const totalPrize = filtered.reduce((s: number, d: any) => s + Number(d.totalPrize), 0)
+  const winCount = filtered.filter((d: any) => Number(d.totalPrize) > 0).length
 
   return (
     <div>
-      {/* 통계 */}
+      <FilterBar
+        years={years} months={months}
+        selectedYear={filterYear} selectedMonth={filterMonth}
+        onYearChange={setFilterYear} onMonthChange={setFilterMonth}
+        resultCount={filtered.length}
+      />
+
+      {/* 통계 (필터 기준) */}
       <div style={{
         display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
         background: '#fff', borderBottom: '1px solid #dcdcdc',
       }}>
         {[
-          { label: '총 스캔', value: `${data.length}장` },
+          { label: '총 스캔', value: `${filtered.length}장` },
           { label: '당첨 횟수', value: `${winCount}회` },
           { label: '총 당첨금', value: totalPrize > 0 ? `₩${totalPrize.toLocaleString()}` : '-' },
         ].map((s, i) => (
@@ -331,33 +469,37 @@ function ScanHistory() {
         ))}
       </div>
 
-      {data.map((scan: any) => (
-        <div key={scan.id} style={{
-          background: '#fff', borderBottom: '1px solid #f0f0f0',
-          padding: '12px 16px',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        }}>
-          <div>
-            <p style={{ fontSize: 14, fontWeight: 600, color: '#333', marginBottom: 3 }}>
-              {scan.round}회차
-            </p>
-            <p style={{ fontSize: 12, color: '#888' }}>
-              {new Date(scan.scannedAt).toLocaleDateString('ko-KR')}
-            </p>
+      {filtered.length === 0 ? (
+        <EmptyState message="해당 조건의 스캔 이력이 없어요" />
+      ) : (
+        filtered.map((scan: any) => (
+          <div key={scan.id} style={{
+            background: '#fff', borderBottom: '1px solid #f0f0f0',
+            padding: '12px 16px',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          }}>
+            <div>
+              <p style={{ fontSize: 14, fontWeight: 600, color: '#333', marginBottom: 3 }}>
+                {scan.round}회차
+              </p>
+              <p style={{ fontSize: 12, color: '#888' }}>
+                {new Date(scan.scannedAt).toLocaleDateString('ko-KR')}
+              </p>
+            </div>
+            {Number(scan.totalPrize) > 0 ? (
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#dc1f1f' }}>
+                ₩{Number(scan.totalPrize).toLocaleString()}
+              </span>
+            ) : (
+              <span style={{
+                fontSize: 11, color: '#888',
+                background: '#f5f5f5', border: '1px solid #dcdcdc',
+                padding: '2px 8px', borderRadius: 2,
+              }}>낙첨</span>
+            )}
           </div>
-          {Number(scan.totalPrize) > 0 ? (
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#dc1f1f' }}>
-              ₩{Number(scan.totalPrize).toLocaleString()}
-            </span>
-          ) : (
-            <span style={{
-              fontSize: 11, color: '#888',
-              background: '#f5f5f5', border: '1px solid #dcdcdc',
-              padding: '2px 8px', borderRadius: 2,
-            }}>낙첨</span>
-          )}
-        </div>
-      ))}
+        ))
+      )}
       <div style={{ padding: '0 16px', marginTop: 8 }}><AdSlot /></div>
     </div>
   )
