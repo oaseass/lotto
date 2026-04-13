@@ -1,8 +1,57 @@
-// GET /api/lotto/stores?top=20 or ?region=서울 or ?q=검색어 or ?lat=37.5&lng=126.9&ohaeng=목&radius=10
+// GET /api/lotto/stores?top=20 or ?region=서울 or ?q=검색어
+// or ?lat=37.5&lng=126.9&ohaeng=목&radius=10 (GPS+방위)
+// or ?ohaeng=목 (사주 전국 추천)
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@prisma/client'
 import { calculateDistance, calculateBearing, isInLuckyDirection } from '@/lib/saju/direction'
+
+// ── 지역 오행 매핑 (한반도 방위 기준) ──────────────────────────────
+// 기준점: 충북 보은 부근 (한반도 지리적 중심)
+// 동쪽(목) 강원·경북·대구·울산  남쪽(화) 부산·경남·전남·제주
+// 서쪽(금) 인천·전북·광주       북쪽(수) 서울·경기
+// 중앙(토) 충북·충남·대전·세종
+const REGION_OHAENG: [string, string][] = [
+  ['강원', '목'], ['경북', '목'], ['대구', '목'], ['울산', '목'],
+  ['부산', '화'], ['경남', '화'], ['전남', '화'], ['제주', '화'],
+  ['충북', '토'], ['충남', '토'], ['대전', '토'], ['세종', '토'], ['경기', '토'],
+  ['인천', '금'], ['전북', '금'], ['광주', '금'],
+  ['서울', '수'],
+]
+
+function getRegionOhaeng(address: string): string | null {
+  for (const [region, ohaeng] of REGION_OHAENG) {
+    if (address.includes(region)) return ohaeng
+  }
+  return null
+}
+
+// 수리(數理) 오행: 천하도 수리 (1,6→수 / 2,7→화 / 3,8→목 / 4,9→금 / 0,5→토)
+function getNumOhaeng(addressNumber: number | null): string | null {
+  if (addressNumber == null) return null
+  const n = addressNumber % 10
+  if (n === 1 || n === 6) return '수'
+  if (n === 2 || n === 7) return '화'
+  if (n === 3 || n === 8) return '목'
+  if (n === 4 || n === 9) return '금'
+  return '토'
+}
+
+function calcSajuScore(
+  store: { address: string; addressNumber?: number | null; winCount1st: number },
+  yongsin: string,
+  maxWin: number
+): { score: number; regionOhaeng: string | null; numOhaeng: string | null } {
+  let score = 0
+  const regionOhaeng = getRegionOhaeng(store.address)
+  const numOhaeng = getNumOhaeng(store.addressNumber ?? null)
+
+  if (regionOhaeng === yongsin) score += 50  // 지역 오행 일치: 50점
+  if (numOhaeng === yongsin) score += 20      // 번지 수리 일치: 20점
+  if (maxWin > 0) score += Math.round((store.winCount1st / maxWin) * 30) // 당첨 실적: 30점
+
+  return { score, regionOhaeng, numOhaeng }
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -11,7 +60,7 @@ export async function GET(req: NextRequest) {
   const lat = searchParams.get('lat') ? parseFloat(searchParams.get('lat')!) : null
   const lng = searchParams.get('lng') ? parseFloat(searchParams.get('lng')!) : null
   const ohaeng = searchParams.get('ohaeng')
-  const radius = parseFloat(searchParams.get('radius') || '2')
+  const radius = parseFloat(searchParams.get('radius') || '10')
   const top = parseInt(searchParams.get('top') || '20')
 
   try {
@@ -39,7 +88,33 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // GPS 검색: 바운딩 박스로 DB 레벨 pre-filter (한국 기준 1도≈111km/88km)
+    // ── 사주 전국 추천 모드 (ohaeng만, lat/lng 없음) ──────────────────
+    if (ohaeng && !lat && !lng) {
+      const candidates = await prisma.lottoStore.findMany({
+        where,
+        orderBy: { winCount1st: 'desc' },
+        take: 200, // 상위 200개 후보에서 사주 점수 계산
+        select: {
+          id: true, name: true, address: true, district: true,
+          addressNumber: true, winCount1st: true,
+          lat: true, lng: true, phone: true,
+        },
+      })
+
+      const maxWin = candidates[0]?.winCount1st ?? 1
+
+      const scored = candidates
+        .map(store => {
+          const { score, regionOhaeng, numOhaeng } = calcSajuScore(store, ohaeng, maxWin)
+          return { ...store, sajuScore: score, regionOhaeng, numOhaeng }
+        })
+        .sort((a, b) => b.sajuScore - a.sajuScore)
+        .slice(0, top)
+
+      return NextResponse.json(scored)
+    }
+
+    // GPS 바운딩 박스 pre-filter
     if (lat && lng) {
       const latDelta = radius / 111
       const lngDelta = radius / 88
@@ -53,21 +128,15 @@ export async function GET(req: NextRequest) {
     let stores = await prisma.lottoStore.findMany({
       where,
       orderBy: { winCount1st: 'desc' },
-      take: lat && lng ? undefined : top * 2, // GPS 검색은 take 제한 없이 전량 조회
+      take: lat && lng ? undefined : top * 2,
       select: {
-        id: true,
-        name: true,
-        address: true,
-        district: true,
-        lat: true,
-        lng: true,
-        winCount1st: true,
-        phone: true,
-        lastUpdated: true,
+        id: true, name: true, address: true, district: true,
+        lat: true, lng: true, winCount1st: true,
+        phone: true, lastUpdated: true,
       },
     })
 
-    // GPS 기반 정확한 거리 필터링 및 정렬
+    // GPS+방위 정렬
     if (lat && lng && ohaeng) {
       const withDistance = stores
         .map(store => {
@@ -85,9 +154,7 @@ export async function GET(req: NextRequest) {
           return b.winCount1st - a.winCount1st
         })
 
-      // top개 미만이면 비운 방위 포함해 채워서 반환
-      const result = withDistance.slice(0, top)
-      return NextResponse.json(result)
+      return NextResponse.json(withDistance.slice(0, top))
     }
 
     return NextResponse.json(stores.slice(0, top))

@@ -42,8 +42,6 @@ export default function StoresPage() {
   const sessionOhaeng = session?.user?.yongsin ?? null
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
   const [showSajuModal, setShowSajuModal] = useState(false)
-  const [gpsLocation, setGpsLocation] = useState<{ lat: number; lng: number } | null>(null)
-  const [permission, setPermission] = useState<'pending' | 'granted' | 'denied'>('pending')
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -62,19 +60,6 @@ export default function StoresPage() {
   })
 
   const userOhaeng = sessionOhaeng ?? profileOhaeng ?? null
-
-  // GPS 위치 요청
-  const requestGpsAndOpenModal = () => {
-    if (!navigator.geolocation) { setPermission('denied'); return }
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        setGpsLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-        setPermission('granted')
-        setShowSajuModal(true)
-      },
-      () => setPermission('denied'),
-    )
-  }
 
   const { data: dbStores, isLoading } = useQuery<TopStore[]>({
     queryKey: ['stores', selectedRegion, searchQuery],
@@ -209,27 +194,18 @@ export default function StoresPage() {
             🧭 사주 기반 판매점 추천
           </p>
           <p style={{ fontSize: 12, color: '#666', lineHeight: 1.6, marginBottom: 12 }}>
-            {userOhaeng} 오행의 길한 방위에 있는 판매점 3곳을 찍어드립니다
+            {userOhaeng} 오행의 지역오행 · 번지수리 · 당첨실적을 종합해<br/>전국에서 가장 궁합 좋은 판매점 3곳을 찍어드립니다
           </p>
           <button
-            onClick={() => {
-              if (permission === 'granted') {
-                setShowSajuModal(true)
-              } else if (permission === 'pending') {
-                requestGpsAndOpenModal()
-              }
-            }}
-            disabled={permission === 'denied'}
+            onClick={() => setShowSajuModal(true)}
             style={{
               width: '100%', height: 40,
-              background: permission === 'denied' ? '#ddd' : '#6d28d9',
-              color: '#fff', fontSize: 12, fontWeight: 700,
-              border: 'none', borderRadius: 6, cursor: permission === 'denied' ? 'default' : 'pointer',
+              background: '#6d28d9', color: '#fff',
+              fontSize: 12, fontWeight: 700,
+              border: 'none', borderRadius: 6, cursor: 'pointer',
             }}
           >
-            {permission === 'pending' ? '📍 위치 허용 후 추천받기 (광고 시청)' :
-             permission === 'granted' ? '🎁 광고 보고 추천 판매점 3곳 받기' :
-             '위치정보 권한 거부됨'}
+            🎁 광고 보고 추천 판매점 3곳 받기
           </button>
         </div>
       )}
@@ -346,10 +322,9 @@ export default function StoresPage() {
       <div style={{ padding: '0 16px', marginTop: 8, marginBottom: 16 }}><AdSlot /></div>
 
       {/* ── 사주 판매점 추천 모달 ── */}
-      {showSajuModal && gpsLocation && userOhaeng && (
+      {showSajuModal && userOhaeng && (
         <SajuStoreModal
           onClose={() => setShowSajuModal(false)}
-          gpsLocation={gpsLocation}
           userOhaeng={userOhaeng}
           isAdFree={isAdFree}
         />

@@ -1,12 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { OHAENG_DIRECTION } from '@/lib/saju/direction'
 
 const AD_CLIENT = process.env.NEXT_PUBLIC_ADSENSE_CLIENT
 
 const OHAENG_COLOR: Record<string, string> = {
   목: '#5bb544', 화: '#e86352', 토: '#e4a816', 금: '#8f8f8f', 수: '#1994da',
+}
+const OHAENG_LABEL: Record<string, string> = {
+  목: '목(木)', 화: '화(火)', 토: '토(土)', 금: '금(金)', 수: '수(水)',
 }
 
 interface StoreResult {
@@ -14,38 +16,22 @@ interface StoreResult {
   name: string
   address: string
   winCount1st: number
-  distance?: number
-  bearing?: number
-  isLucky?: boolean
+  sajuScore?: number
+  regionOhaeng?: string | null
+  numOhaeng?: string | null
 }
 
 interface Props {
   onClose: () => void
-  gpsLocation: { lat: number; lng: number }
   userOhaeng: string
   isAdFree?: boolean
 }
 
-function bearingLabel(bearing: number): string {
-  const labels = ['북', '북동', '동', '남동', '남', '남서', '서', '북서']
-  return labels[Math.round(((bearing % 360) + 360) % 360 / 45) % 8]
-}
-
-function calcScore(store: StoreResult, maxWin: number): number {
-  let score = 0
-  if (store.isLucky) score += 50
-  if (maxWin > 0) score += Math.round((store.winCount1st / maxWin) * 30)
-  if (store.distance !== undefined) score += Math.round(Math.max(0, 20 - store.distance * 4))
-  return Math.min(99, Math.max(10, score))
-}
-
-export default function SajuStoreModal({ onClose, gpsLocation, userOhaeng, isAdFree }: Props) {
+export default function SajuStoreModal({ onClose, userOhaeng, isAdFree }: Props) {
   const [phase, setPhase] = useState<'ad' | 'loading' | 'result'>(isAdFree ? 'loading' : 'ad')
   const [countdown, setCountdown] = useState(5)
   const [stores, setStores] = useState<StoreResult[]>([])
   const [error, setError] = useState('')
-
-  const luckyDirs = OHAENG_DIRECTION[userOhaeng]?.directions.join(' · ') || '전 방위'
 
   // 광고 카운트다운
   useEffect(() => {
@@ -65,11 +51,11 @@ export default function SajuStoreModal({ onClose, gpsLocation, userOhaeng, isAdF
     setPhase('loading')
     try {
       const res = await fetch(
-        `/api/lotto/stores?lat=${gpsLocation.lat}&lng=${gpsLocation.lng}&ohaeng=${encodeURIComponent(userOhaeng)}&radius=10&top=3`
+        `/api/lotto/stores?ohaeng=${encodeURIComponent(userOhaeng)}&top=3`
       )
       if (!res.ok) throw new Error()
       const data: StoreResult[] = await res.json()
-      setStores(data.slice(0, 3))
+      setStores(data)
       setPhase('result')
     } catch {
       setError('판매점 정보를 불러오지 못했습니다')
@@ -77,11 +63,12 @@ export default function SajuStoreModal({ onClose, gpsLocation, userOhaeng, isAdF
     }
   }
 
-  // isAdFree면 바로 로드
   useEffect(() => {
     if (isAdFree) fetchStores()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const rankColors = ['#e4a816', '#9e9e9e', '#cd7f32']
 
   return (
     <div
@@ -112,8 +99,9 @@ export default function SajuStoreModal({ onClose, gpsLocation, userOhaeng, isAdF
           <div>
             <p style={{ fontSize: 14, fontWeight: 700, color: '#6d28d9' }}>🧭 사주 맞춤 판매점 추천</p>
             <p style={{ fontSize: 11, color: '#888', marginTop: 2 }}>
-              <span style={{ color: OHAENG_COLOR[userOhaeng] || '#6d28d9', fontWeight: 700 }}>{userOhaeng} 오행</span>
-              {' '}· 길한 방위: <strong>{luckyDirs}</strong>
+              용신 <span style={{ color: OHAENG_COLOR[userOhaeng] || '#6d28d9', fontWeight: 700 }}>
+                {OHAENG_LABEL[userOhaeng] || userOhaeng}
+              </span> 기반 · 지역오행 + 번지수리 + 당첨실적 종합
             </p>
           </div>
           <button onClick={onClose} style={{
@@ -136,13 +124,34 @@ export default function SajuStoreModal({ onClose, gpsLocation, userOhaeng, isAdF
               광고를 시청하면
             </p>
             <p style={{ fontSize: 13, color: '#555', textAlign: 'center', lineHeight: 1.7, marginBottom: 20 }}>
-              <strong style={{ color: '#6d28d9' }}>내 사주 맞춤 판매점 3곳</strong>을
-              <br/>직접 찍어서 알려드립니다
+              <strong style={{ color: '#6d28d9' }}>전국에서 내 사주와 가장 잘 맞는</strong><br/>
+              판매점 3곳을 찍어드립니다
             </p>
+
+            {/* 선정 기준 설명 */}
+            <div style={{
+              width: '100%', background: '#f5f0ff', borderRadius: 8,
+              padding: '10px 14px', marginBottom: 16,
+            }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: '#6d28d9', marginBottom: 6 }}>선정 기준</p>
+              {[
+                { icon: '🗺️', label: '지역 오행 (50점)', desc: '한반도 방위 기준 지역의 오행 일치 여부' },
+                { icon: '🔢', label: '번지 수리 (20점)', desc: '판매점 번지번호 수리 오행 일치 여부' },
+                { icon: '🏆', label: '당첨 실적 (30점)', desc: '역대 1등 당첨 횟수 반영' },
+              ].map(({ icon, label, desc }) => (
+                <div key={label} style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+                  <span style={{ fontSize: 13, flexShrink: 0 }}>{icon}</span>
+                  <div>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#555' }}>{label}</span>
+                    <span style={{ fontSize: 11, color: '#888' }}> — {desc}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
 
             {/* 광고 영역 */}
             <div style={{
-              width: '100%', minHeight: 120, background: '#f5f5f5',
+              width: '100%', minHeight: 100, background: '#f5f5f5',
               border: '1px dashed #ddd', borderRadius: 8,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               marginBottom: 20, overflow: 'hidden', flexShrink: 0,
@@ -156,9 +165,7 @@ export default function SajuStoreModal({ onClose, gpsLocation, userOhaeng, isAdF
                   data-full-width-responsive="true"
                 />
               ) : (
-                <div style={{ textAlign: 'center', padding: 20 }}>
-                  <p style={{ fontSize: 11, color: '#bbb' }}>광 고</p>
-                </div>
+                <p style={{ fontSize: 11, color: '#bbb' }}>광 고</p>
               )}
             </div>
 
@@ -189,27 +196,19 @@ export default function SajuStoreModal({ onClose, gpsLocation, userOhaeng, isAdF
                   transition: 'background 0.5s',
                 }}
               >
-                {countdown > 0
-                  ? `잠시만요... (${countdown}초)`
-                  : '✨ 내 사주 맞춤 판매점 3곳 보기'}
+                {countdown > 0 ? `잠시만요... (${countdown}초)` : '✨ 내 사주 맞춤 판매점 3곳 보기'}
               </button>
             </div>
-
-            <p style={{ fontSize: 11, color: '#bbb', marginTop: 12, textAlign: 'center' }}>
-              광고 시청 후 추천 결과가 잠금 해제됩니다
-            </p>
           </div>
         )}
 
         {/* ── 로딩 ── */}
         {phase === 'loading' && (
           <div style={{ padding: '60px 16px', textAlign: 'center', flex: 1 }}>
-            <div style={{ fontSize: 40, marginBottom: 14 }}>🧭</div>
-            <p style={{ fontSize: 13, fontWeight: 600, color: '#6d28d9', marginBottom: 6 }}>
-              사주 방위 분석 중...
-            </p>
+            <div style={{ fontSize: 40, marginBottom: 14 }}>🔮</div>
+            <p style={{ fontSize: 13, fontWeight: 600, color: '#6d28d9', marginBottom: 6 }}>사주 분석 중...</p>
             <p style={{ fontSize: 12, color: '#888' }}>
-              {userOhaeng} 오행 기준 주변 판매점을 탐색합니다
+              {OHAENG_LABEL[userOhaeng]} 용신 기준 전국 판매점 분석 중
             </p>
           </div>
         )}
@@ -219,104 +218,95 @@ export default function SajuStoreModal({ onClose, gpsLocation, userOhaeng, isAdF
           <div style={{ overflowY: 'auto', flex: 1, padding: '16px' }}>
             {error || stores.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '40px 0' }}>
-                <div style={{ fontSize: 36, marginBottom: 12 }}>😔</div>
-                <p style={{ fontSize: 13, color: '#888' }}>
-                  {error || '주변에 추천 판매점이 없습니다'}
-                </p>
-                <p style={{ fontSize: 12, color: '#bbb', marginTop: 6 }}>
-                  현재 위치 10km 이내 데이터 없음
-                </p>
+                <p style={{ fontSize: 13, color: '#888' }}>{error || '추천 판매점을 찾지 못했습니다'}</p>
               </div>
             ) : (
               <>
                 <p style={{ fontSize: 12, color: '#888', marginBottom: 14, textAlign: 'center' }}>
-                  현재 위치 기준 <strong style={{ color: '#6d28d9' }}>{userOhaeng} 오행 길한 방위</strong> 추천 TOP {stores.length}
-                  <span style={{ color: '#aaa', fontWeight: 400 }}> · 반경 10km</span>
+                  <strong style={{ color: '#6d28d9' }}>{OHAENG_LABEL[userOhaeng]} 용신</strong> 기준
+                  전국 판매점 사주 궁합 TOP {stores.length}
                 </p>
 
-                {(() => {
-                  const maxWin = Math.max(...stores.map(s => s.winCount1st), 1)
-                  return stores.map((store, i) => {
-                    const score = calcScore(store, maxWin)
-                    const dirLabel = store.bearing !== undefined ? bearingLabel(store.bearing) : ''
-                    const rankColor = i === 0 ? '#e4a816' : i === 1 ? '#9e9e9e' : '#cd7f32'
+                {stores.map((store, i) => (
+                  <div key={store.id || i} style={{
+                    background: '#f9f5ff',
+                    border: '1.5px solid #c4a0e8',
+                    borderRadius: 12, padding: '14px 12px', marginBottom: 10,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                      {/* 순위 */}
+                      <div style={{
+                        width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                        background: rankColors[i],
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 14, fontWeight: 900, color: '#fff',
+                      }}>{i + 1}</div>
 
-                    return (
-                      <div key={store.id || i} style={{
-                        background: store.isLucky ? '#f9f5ff' : '#fafafa',
-                        border: `1.5px solid ${store.isLucky ? '#c4a0e8' : '#e8e8e8'}`,
-                        borderRadius: 12, padding: '14px 12px', marginBottom: 10,
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                          {/* 순위 */}
-                          <div style={{
-                            width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-                            background: rankColor,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 14, fontWeight: 900, color: '#fff',
-                          }}>{i + 1}</div>
+                      {/* 정보 */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 14, fontWeight: 700, color: '#333', marginBottom: 4 }}>
+                          {store.name}
+                        </p>
+                        <p style={{
+                          fontSize: 11, color: '#777', marginBottom: 8,
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>
+                          📍 {store.address}
+                        </p>
 
-                          {/* 정보 */}
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', marginBottom: 4 }}>
-                              <p style={{ fontSize: 14, fontWeight: 700, color: '#333' }}>{store.name}</p>
-                              {store.isLucky && (
-                                <span style={{
-                                  fontSize: 10, fontWeight: 600, color: '#fff',
-                                  background: OHAENG_COLOR[userOhaeng] || '#6d28d9',
-                                  padding: '1px 6px', borderRadius: 3,
-                                }}>
-                                  길한 방위
-                                </span>
-                              )}
-                            </div>
-                            <p style={{
-                              fontSize: 11, color: '#777', marginBottom: 8,
-                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        {/* 선정 이유 뱃지 */}
+                        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 4 }}>
+                          {store.regionOhaeng === userOhaeng && (
+                            <span style={{
+                              fontSize: 10, fontWeight: 700,
+                              background: OHAENG_COLOR[userOhaeng] || '#6d28d9',
+                              color: '#fff', padding: '2px 7px', borderRadius: 10,
                             }}>
-                              📍 {store.address}
-                            </p>
-                            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                              {store.distance !== undefined && (
-                                <span style={{ fontSize: 11, color: '#007bc3', fontWeight: 600 }}>
-                                  📌 {store.distance.toFixed(1)}km
-                                </span>
-                              )}
-                              {dirLabel && (
-                                <span style={{ fontSize: 11, color: '#6d28d9', fontWeight: 600 }}>
-                                  🧭 {dirLabel} 방향
-                                </span>
-                              )}
-                              <span style={{ fontSize: 11, color: '#dc1f1f', fontWeight: 600 }}>
-                                🏆 1등 {store.winCount1st}회
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* 사주 궁합 점수 */}
-                          <div style={{
-                            width: 46, height: 46, borderRadius: '50%', flexShrink: 0,
-                            background: `conic-gradient(${OHAENG_COLOR[userOhaeng] || '#6d28d9'} ${score * 3.6}deg, #eee ${score * 3.6}deg)`,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              🗺️ 지역오행 {OHAENG_LABEL[store.regionOhaeng]}
+                            </span>
+                          )}
+                          {store.numOhaeng === userOhaeng && (
+                            <span style={{
+                              fontSize: 10, fontWeight: 700,
+                              background: '#6d28d9', color: '#fff',
+                              padding: '2px 7px', borderRadius: 10,
+                            }}>
+                              🔢 번지수리 {OHAENG_LABEL[store.numOhaeng]}
+                            </span>
+                          )}
+                          <span style={{
+                            fontSize: 10, fontWeight: 700,
+                            background: '#dc1f1f', color: '#fff',
+                            padding: '2px 7px', borderRadius: 10,
                           }}>
-                            <div style={{
-                              width: 34, height: 34, borderRadius: '50%',
-                              background: '#fff',
-                              display: 'flex', flexDirection: 'column',
-                              alignItems: 'center', justifyContent: 'center',
-                            }}>
-                              <span style={{ fontSize: 11, fontWeight: 900, color: '#333', lineHeight: 1 }}>{score}</span>
-                              <span style={{ fontSize: 8, color: '#aaa', lineHeight: 1 }}>점</span>
-                            </div>
-                          </div>
+                            🏆 1등 {store.winCount1st}회
+                          </span>
                         </div>
                       </div>
-                    )
-                  })
-                })()}
+
+                      {/* 사주 궁합 점수 */}
+                      {store.sajuScore !== undefined && (
+                        <div style={{
+                          width: 46, height: 46, borderRadius: '50%', flexShrink: 0,
+                          background: `conic-gradient(${OHAENG_COLOR[userOhaeng] || '#6d28d9'} ${store.sajuScore * 3.6}deg, #eee ${store.sajuScore * 3.6}deg)`,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          <div style={{
+                            width: 34, height: 34, borderRadius: '50%', background: '#fff',
+                            display: 'flex', flexDirection: 'column',
+                            alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            <span style={{ fontSize: 11, fontWeight: 900, color: '#333', lineHeight: 1 }}>{store.sajuScore}</span>
+                            <span style={{ fontSize: 8, color: '#aaa', lineHeight: 1 }}>점</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
 
                 <p style={{ fontSize: 10, color: '#ccc', textAlign: 'center', marginTop: 4, lineHeight: 1.6 }}>
-                  점수: 방위 적합도(50) + 당첨 이력(30) + 거리(20) 종합
+                  지역오행(50) + 번지수리(20) + 당첨실적(30) 합산 · 전국 상위 200개 대상
                 </p>
               </>
             )}
