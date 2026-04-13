@@ -22,7 +22,7 @@ interface SajuProfile {
 
 interface Stats {
   total: number
-  checked: number
+  autoCount: number
   wins: number
   ranked: { rank: number; count: number }[]
 }
@@ -94,7 +94,7 @@ export default function MyPage() {
       const wins = ranked.reduce((s, r) => s + r.count, 0)
       return {
         total: data.total ?? 0,
-        checked: data.total ?? 0,   // 모든 번호는 자동으로 추첨 결과와 대조됨
+        autoCount: data.autoCount ?? 0,
         wins,
         ranked,
       }
@@ -411,7 +411,7 @@ export default function MyPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
           {[
             { label: '생성된 번호', value: stats?.total ?? '-', unit: '세트', href: '/history' },
-            { label: '결과 확인', value: stats?.checked ?? '-', unit: '세트', href: '/history?tab=checked' },
+            { label: '사주 추천', value: stats?.autoCount ?? '-', unit: '세트', href: '/history' },
             { label: '당첨 횟수', value: stats?.wins ?? 0, unit: '회', href: '/history?tab=win' },
           ].map(({ label, value, unit, href }) => (
             <button
