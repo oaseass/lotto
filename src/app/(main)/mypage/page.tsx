@@ -23,6 +23,7 @@ interface SajuProfile {
 interface Stats {
   total: number
   checked: number
+  wins: number
   ranked: { rank: number; count: number }[]
 }
 
@@ -83,16 +84,20 @@ export default function MyPage() {
   const { data: stats } = useQuery<Stats>({
     queryKey: ['mypage-stats'],
     queryFn: async () => {
-      const res = await fetch('/api/lotto/my-numbers')
-      if (!res.ok) return { total: 0, checked: 0, ranked: [] }
+      const res = await fetch('/api/lotto/my-numbers/stats')
+      if (!res.ok) return { total: 0, checked: 0, wins: 0, ranked: [] }
       const data = await res.json()
-      if (!Array.isArray(data)) return { total: 0, checked: 0, ranked: [] }
-      const total = data.length
-      const checked = data.filter((d: any) => d.rank !== null && d.rank !== undefined).length
-      const rankCount: Record<number, number> = {}
-      data.forEach((d: any) => { if (d.rank) rankCount[d.rank] = (rankCount[d.rank] || 0) + 1 })
-      const ranked = Object.entries(rankCount).map(([r, c]) => ({ rank: Number(r), count: c })).sort((a, b) => a.rank - b.rank)
-      return { total, checked, ranked }
+      const rankSummary: Record<number, any[]> = data.rankSummary ?? {}
+      const ranked = [1, 2, 3, 4, 5]
+        .filter(r => (rankSummary[r]?.length ?? 0) > 0)
+        .map(r => ({ rank: r, count: rankSummary[r].length }))
+      const wins = ranked.reduce((s, r) => s + r.count, 0)
+      return {
+        total: data.total ?? 0,
+        checked: data.total ?? 0,   // 모든 번호는 자동으로 추첨 결과와 대조됨
+        wins,
+        ranked,
+      }
     },
     enabled: !!session,
   })
@@ -405,17 +410,22 @@ export default function MyPage() {
         <p style={{ fontSize: 13, fontWeight: 700, color: '#333', marginBottom: 12 }}>번호 생성 통계</p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
           {[
-            { label: '생성된 번호', value: stats?.total ?? '-', unit: '세트' },
-            { label: '결과 확인', value: stats?.checked ?? '-', unit: '세트' },
-            { label: '당첨 횟수', value: stats?.ranked.length ? stats.ranked.reduce((s, r) => s + r.count, 0) : 0, unit: '회' },
-          ].map(({ label, value, unit }) => (
-            <div key={label} style={{
-              background: '#f7f7f7', borderRadius: 4, padding: '12px 8px', textAlign: 'center',
-            }}>
+            { label: '생성된 번호', value: stats?.total ?? '-', unit: '세트', href: '/history' },
+            { label: '결과 확인', value: stats?.checked ?? '-', unit: '세트', href: '/history?tab=checked' },
+            { label: '당첨 횟수', value: stats?.wins ?? 0, unit: '회', href: '/history?tab=win' },
+          ].map(({ label, value, unit, href }) => (
+            <button
+              key={label}
+              onClick={() => router.push(href)}
+              style={{
+                background: '#f7f7f7', borderRadius: 4, padding: '12px 8px', textAlign: 'center',
+                border: '1px solid #eee', cursor: 'pointer',
+              }}
+            >
               <p style={{ fontSize: 20, fontWeight: 900, color: '#007bc3' }}>{value}</p>
               <p style={{ fontSize: 10, color: '#888', marginTop: 2 }}>{unit}</p>
               <p style={{ fontSize: 11, color: '#555', marginTop: 3 }}>{label}</p>
-            </div>
+            </button>
           ))}
         </div>
         {stats?.ranked && stats.ranked.length > 0 && (
