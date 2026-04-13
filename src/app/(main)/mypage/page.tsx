@@ -83,9 +83,9 @@ export default function MyPage() {
 
   const { data: stats } = useQuery<Stats>({
     queryKey: ['mypage-stats'],
-    queryFn: async () => {
+    queryFn: async (): Promise<Stats> => {
       const res = await fetch('/api/lotto/my-numbers/stats')
-      if (!res.ok) return { total: 0, checked: 0, wins: 0, ranked: [] }
+      if (!res.ok) return { total: 0, autoCount: 0, wins: 0, ranked: [] }
       const data = await res.json()
       const rankSummary: Record<number, any[]> = data.rankSummary ?? {}
       const ranked = [1, 2, 3, 4, 5]

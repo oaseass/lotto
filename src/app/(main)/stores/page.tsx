@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
@@ -37,7 +37,7 @@ interface TopStore {
 }
 
 export default function StoresPage() {
-  const { data: session } = useSession()
+  const { data: session, update: updateSession } = useSession()
   const isAdFree = session?.user?.isAdFree ?? false
   const userOhaeng = session?.user?.yongsin ?? null
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
@@ -46,6 +46,11 @@ export default function StoresPage() {
   const [permission, setPermission] = useState<'pending' | 'granted' | 'denied'>('pending')
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+
+  // 기존 JWT에 yongsin이 없는 경우(로그인 상태 유지) 토큰 갱신
+  useEffect(() => {
+    if (session?.user?.id) updateSession()
+  }, [session?.user?.id])
 
   // GPS 위치 요청
   const requestGpsAndOpenModal = () => {
