@@ -1127,25 +1127,27 @@ export default function HomePage() {
       <div style={{ padding: '0 16px', marginBottom: 8 }}><AdSlot /></div>
       {session && (
         <>
-          <h3 style={{
-            position: 'relative', height: 53, lineHeight: '51px',
-            margin: 0, padding: '0 10px',
-            fontWeight: 700, fontSize: 15, color: '#333',
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            height: 44, padding: '0 12px 0 10px',
             borderTop: '1px solid #dcdcdc', borderBottom: '1px solid #dcdcdc',
             background: '#f7f7f7',
           }}>
-            내 수동 번호
+            <span style={{ fontWeight: 700, fontSize: 15, color: '#333' }}>내 수동 번호</span>
             <button
               onClick={() => setShowManualSheet(true)}
               style={{
-                position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-                height: 28, padding: '0 10px',
+                height: 30, padding: '0 12px',
                 background: '#007bc3', border: 'none',
-                color: '#fff', fontSize: 11, fontWeight: 600,
-                cursor: 'pointer', borderRadius: 2,
+                color: '#fff', fontSize: 12, fontWeight: 700,
+                cursor: 'pointer', borderRadius: 4,
+                display: 'flex', alignItems: 'center', gap: 3,
               }}
-            >+ 입력</button>
-          </h3>
+            >
+              <span style={{ fontSize: 14, lineHeight: 1 }}>+</span>
+              입력
+            </button>
+          </div>
 
           {loadingManual ? (
             <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', marginBottom: 8 }}>
