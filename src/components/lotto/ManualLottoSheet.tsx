@@ -8,7 +8,7 @@ function getBallColor(n: number): string {
   if (n <= 10) return '#f7971d'
   if (n <= 20) return '#4ca9e4'
   if (n <= 30) return '#e74c3c'
-  if (n <= 40) return '#888'
+  if (n <= 40) return '#888888'
   return '#5bb544'
 }
 
