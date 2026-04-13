@@ -170,6 +170,54 @@ export default function StoresPage() {
         </div>
       </div>
 
+      {/* ── 사주 기반 판매점 추천 ── */}
+      {session && userOhaeng && (
+        <div style={{
+          background: '#f5f0ff', border: '1px solid #e8d5f2',
+          borderRadius: 8, padding: '14px 16px', marginBottom: 8, marginLeft: 8, marginRight: 8,
+        }}>
+          {!showSajuRecommend ? (
+            <>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#6d28d9', marginBottom: 10 }}>
+                🧭 사주 기반 판매점 추천
+              </p>
+              <p style={{ fontSize: 12, color: '#666', lineHeight: 1.6, marginBottom: 12 }}>
+                {userOhaeng} 오행의 길한 방위에 있는 판매점을 추천합니다<br/>
+                저마다의 용신 오행 방위에서 운이 더 잘 풀릴 수 있어요
+              </p>
+              <button
+                onClick={() => {
+                  if (permission === 'pending') requestLocation()
+                  else if (permission === 'granted') setShowSajuRecommend(true)
+                }}
+                style={{
+                  width: '100%', height: 36,
+                  background: permission === 'denied' ? '#ddd' : '#6d28d9',
+                  color: '#fff', fontSize: 12, fontWeight: 600,
+                  border: 'none', borderRadius: 4, cursor: 'pointer',
+                }}
+              >
+                {permission === 'pending' ? '위치정보 허용 후 추천받기' :
+                 permission === 'granted' ? (showSajuRecommend ? '일반 보기로 돌아가기' : '추천 판매점 보기') :
+                 '위치정보 권한 거부됨'}
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setShowSajuRecommend(false)}
+              style={{
+                width: '100%', height: 36,
+                background: '#f5f5f5', color: '#333',
+                fontSize: 12, fontWeight: 600,
+                border: '1px solid #ddd', borderRadius: 4, cursor: 'pointer',
+              }}
+            >
+              ← 일반 보기로 돌아가기
+            </button>
+          )}
+        </div>
+      )}
+
       {/* ── 판매점 목록 ── */}
       <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', marginBottom: 8 }}>
         <div style={{
