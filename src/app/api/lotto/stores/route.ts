@@ -122,6 +122,42 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(scored)
     }
 
+    // ── 사주 + 위치 반경 모드 (ohaeng + lat + lng) ──────────────────
+    if (ohaeng && lat !== null && lng !== null) {
+      const weakOhaeng = ohaeng.split(',').filter(Boolean)
+      const latDelta = radius / 111
+      const lngDelta = radius / 88
+      const candidates = await prisma.lottoStore.findMany({
+        where: {
+          ...excludeInternet,
+          lat: { gte: lat - latDelta, lte: lat + latDelta },
+          lng: { gte: lng - lngDelta, lte: lng + lngDelta },
+        },
+        orderBy: { winCount1st: 'desc' },
+        take: 200,
+        select: {
+          id: true, name: true, address: true, district: true,
+          addressNumber: true, winCount1st: true, lat: true, lng: true,
+        },
+      })
+
+      const inRadius = candidates.filter(
+        s => s.lat != null && s.lng != null && calculateDistance(lat, lng, s.lat, s.lng) <= radius
+      )
+
+      const maxWin = inRadius.reduce((m, s) => Math.max(m, s.winCount1st), 1)
+      const scored = inRadius
+        .map(store => {
+          const { score, regionOhaeng, numOhaeng } = calcSajuScore(store, weakOhaeng, maxWin)
+          const distance = calculateDistance(lat, lng, store.lat!, store.lng!)
+          return { ...store, sajuScore: score, regionOhaeng, numOhaeng, distance }
+        })
+        .sort((a, b) => b.sajuScore - a.sajuScore)
+        .slice(0, top)
+
+      return NextResponse.json(scored)
+    }
+
     // GPS 바운딩 박스 pre-filter
     if (lat && lng) {
       const latDelta = radius / 111
