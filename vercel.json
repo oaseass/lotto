@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/update-lotto",
       "schedule": "50 11 * * 6"
+    },
+    {
+      "path": "/api/cron/daily-fortune",
+      "schedule": "0 23 * * *"
     }
   ]
 }

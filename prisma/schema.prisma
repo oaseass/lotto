@@ -26,6 +26,7 @@ model User {
   adFreePurchase AdFreePurchase?
   accounts       Account[]
   sessions       Session[]
+  pushTokens     PushToken[]
 }
 
 // NextAuth 계정 (소셜 로그인용)
@@ -188,4 +189,17 @@ model LottoStore {
   lastUpdated   DateTime @default(now())
 
   @@index([winCount1st(sort: Desc)])
+}
+
+// 푸시 알람 토큰
+model PushToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  platform  String   @default("android")
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

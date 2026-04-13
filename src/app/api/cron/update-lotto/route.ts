@@ -7,6 +7,7 @@ export const maxDuration = 60
 
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { sendPush } from '@/lib/push/sender'
 
 async function fetchDraw(round: number) {
   for (let i = 0; i < 3; i++) {
@@ -162,6 +163,89 @@ export async function GET(req: NextRequest) {
       }
     } else {
       log.push(`판매점 이미 존재 (${storeCount}개)`)
+    }
+
+    // ── 4. 푸시 알람 발송 ──────────────────────────────────────────
+    try {
+      const drawDate = data.drawDate
+      const weekAgo = new Date(drawDate.getTime() - 7 * 24 * 60 * 60 * 1000)
+
+      // 이번 주 생성된 LottoNumber 조회 + drawRound FK 연결
+      const thisWeekNums = await prisma.lottoNumber.findMany({
+        where: {
+          generatedDate: { gte: weekAgo, lte: new Date(drawDate.getTime() + 24 * 60 * 60 * 1000) },
+          drawRound: null,
+        },
+        include: { user: { include: { pushTokens: true } } },
+      })
+
+      if (thisWeekNums.length > 0) {
+        await prisma.lottoNumber.updateMany({
+          where: { id: { in: thisWeekNums.map(n => n.id) } },
+          data: { drawRound: data.drwNo },
+        })
+        log.push(`번호 이력 ${thisWeekNums.length}개 drawRound 연결`)
+      }
+
+      // 유저별 집계
+      const userMap = new Map<string, { nums: number[][], tokens: string[] }>()
+      for (const n of thisWeekNums) {
+        const uid = n.userId
+        if (!userMap.has(uid)) {
+          userMap.set(uid, { nums: [], tokens: n.user.pushTokens.map(t => t.token) })
+        }
+        userMap.get(uid)!.nums.push(n.numbers)
+      }
+
+      // 등수 계산
+      function calcMatchRank(nums: number[], drawNums: number[], bonus: number): number | null {
+        const matched = nums.filter(n => drawNums.includes(n)).length
+        if (matched === 6) return 1
+        if (matched === 5 && nums.includes(bonus)) return 2
+        if (matched === 5) return 3
+        if (matched === 4) return 4
+        if (matched === 3) return 5
+        return null
+      }
+
+      let pushSent = 0
+
+      // 이력 있는 유저: 개인 결과 push
+      const historyUserIds = new Set(userMap.keys())
+      for (const [, { nums, tokens }] of userMap) {
+        if (!tokens.length) continue
+        const ranks = nums.map(set => calcMatchRank(set, data.numbers, data.bonus))
+        const rankCounts: Record<number, number> = {}
+        ranks.forEach(r => { if (r !== null) rankCounts[r] = (rankCounts[r] || 0) + 1 })
+        const parts = [1,2,3,4,5].filter(r => rankCounts[r]).map(r => `${r}등 ${rankCounts[r]}개`)
+
+        const body = parts.length > 0
+          ? `내 번호 ${nums.length}세트 중 ${parts.join(', ')} 당첨! 확인하러 가기`
+          : `내 번호 ${nums.length}세트 분석완료 · 아쉽지만 다음 기회에!`
+
+        await sendPush(tokens, `${data.drwNo}회 당첨결과 🎰`, body, '/home')
+        pushSent += tokens.length
+      }
+
+      // 이력 없는 유저: 결과 발표 알림
+      const noHistoryTokens = await prisma.pushToken.findMany({
+        where: { userId: { notIn: Array.from(historyUserIds) } },
+        select: { token: true },
+      })
+      if (noHistoryTokens.length > 0) {
+        const numStr = data.numbers.join(' ')
+        await sendPush(
+          noHistoryTokens.map(t => t.token),
+          `${data.drwNo}회 당첨번호 발표! 🔮`,
+          `${numStr}+${data.bonus} · 내 사주로 분석해볼까요?`,
+          '/fortune'
+        )
+        pushSent += noHistoryTokens.length
+      }
+
+      log.push(`푸시 발송: ${pushSent}명`)
+    } catch (pe: any) {
+      log.push(`푸시 발송 오류(무시): ${pe.message}`)
     }
 
     return NextResponse.json({ ok: true, round: data.drwNo, log })

@@ -4,6 +4,7 @@ import { SessionProvider } from 'next-auth/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
 import type { Session } from 'next-auth'
+import { PushPermission } from '@/components/push/PushPermission'
 
 function SyncInitializer() {
   useEffect(() => {
@@ -73,6 +74,7 @@ export function Providers({ children, session }: { children: React.ReactNode; se
     <SessionProvider session={session}>
       <QueryClientProvider client={queryClient}>
         <SyncInitializer />
+        <PushPermission />
         <style>{`
           @keyframes slideIn {
             from { transform: translateX(400px); opacity: 0; }

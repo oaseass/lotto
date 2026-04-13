@@ -21,6 +21,8 @@
     "bcryptjs": "^2.4.3",
     "cheerio": "^1.0.0-rc.12",
     "date-fns": "^3.0.0",
+    "firebase": "^12.12.0",
+    "firebase-admin": "^13.8.0",
     "html5-qrcode": "^2.3.8",
     "jsqr": "^1.4.0",
     "korean-lunar-calendar": "^0.3.1",
