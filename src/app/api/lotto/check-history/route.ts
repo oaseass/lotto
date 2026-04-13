@@ -1,0 +1,36 @@
+// POST /api/lotto/check-history
+// 특정 번호 조합이 과거 회차에서 몇 등인지 통계
+
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
+
+export async function POST(req: NextRequest) {
+  try {
+    const { numbers } = await req.json()
+    if (!Array.isArray(numbers) || numbers.length !== 6) {
+      return NextResponse.json({ error: '잘못된 번호' }, { status: 400 })
+    }
+
+    const draws = await prisma.lottoDraw.findMany({
+      orderBy: { round: 'desc' },
+      take: 500,
+    })
+
+    const stats = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, checked: draws.length }
+
+    for (const draw of draws) {
+      const matched = numbers.filter((n: number) => draw.numbers.includes(n)).length
+      const bonusMatch = numbers.includes(draw.bonus)
+
+      if (matched === 6) stats[1]++
+      else if (matched === 5 && bonusMatch) stats[2]++
+      else if (matched === 5) stats[3]++
+      else if (matched === 4) stats[4]++
+      else if (matched === 3) stats[5]++
+    }
+
+    return NextResponse.json(stats)
+  } catch {
+    return NextResponse.json({ error: '조회 실패' }, { status: 500 })
+  }
+}

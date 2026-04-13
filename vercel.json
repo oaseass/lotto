@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/update-lotto",
+      "schedule": "50 11 * * 6"
+    }
+  ]
+}

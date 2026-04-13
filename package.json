@@ -1,0 +1,48 @@
+{
+  "name": "sajulotto",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:push": "prisma db push",
+    "db:generate": "prisma generate",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.0",
+    "@auth/prisma-adapter": "^2.0.0",
+    "@prisma/client": "^5.0.0",
+    "@tanstack/react-query": "^5.0.0",
+    "axios": "^1.6.0",
+    "bcryptjs": "^2.4.3",
+    "cheerio": "^1.0.0-rc.12",
+    "date-fns": "^3.0.0",
+    "html5-qrcode": "^2.3.8",
+    "jsqr": "^1.4.0",
+    "korean-lunar-calendar": "^0.3.1",
+    "lunar-javascript": "^1.7.7",
+    "next": "14.2.0",
+    "next-auth": "^5.0.0-beta.19",
+    "node-cron": "^3.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "xlsx": "^0.18.5",
+    "zustand": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "autoprefixer": "^10.0.0",
+    "eslint": "^8.0.0",
+    "eslint-config-next": "14.2.0",
+    "postcss": "^8.0.0",
+    "prisma": "^5.0.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.0.0"
+  }
+}

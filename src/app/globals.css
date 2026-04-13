@@ -1,0 +1,268 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* === 동행복권 공식 색상 === */
+    --primary: #007bc3;
+    --primary-dark: #005a94;
+    --primary-light: #e8f4fd;
+    --secondary: #129f97;
+    --secondary-dark: #0d7a73;
+    --secondary-light: #e6f7f6;
+    --red: #dc1f1f;
+    --orange: #e03f0e;
+
+    /* === 배경 === */
+    --bg: #f5f5f5;
+    --bg-white: #ffffff;
+    --bg-section: #f7f7f7;
+    --bg-blue-light: #f7fbff;
+    --bg-header: #007bc3;
+
+    /* === 텍스트 === */
+    --t1: #333333;
+    --t2: #444444;
+    --t3: #666666;
+    --t4: #888888;
+
+    /* === 보더 === */
+    --border: #dcdcdc;
+    --border-dark: #bfbfbf;
+    --border-blue: #007bc3;
+
+    /* === 로또볼 공식 색상 === */
+    --ball-1-10:  #e4a816;   /* 1~10  : 노랑 */
+    --ball-11-20: #1994da;   /* 11~20 : 파랑 */
+    --ball-21-30: #e86352;   /* 21~30 : 빨강 */
+    --ball-31-40: #8f8f8f;   /* 31~40 : 회색 */
+    --ball-41-45: #5bb544;   /* 41~45 : 초록 */
+  }
+
+  * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--t3);
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    font-size: 14px;
+    line-height: 1.5;
+    font-family: -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  }
+
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 2px; }
+}
+
+@layer components {
+  /* === 버튼 === */
+  .btn-primary {
+    display: inline-block;
+    height: 43px;
+    padding: 0 20px;
+    font-weight: 500;
+    font-size: 15px;
+    color: #fff;
+    background: var(--primary);
+    border: 1px solid var(--primary-dark);
+    border-radius: 2px;
+    text-align: center;
+    cursor: pointer;
+    line-height: 41px;
+  }
+
+  .btn-gray {
+    display: inline-block;
+    height: 40px;
+    padding: 0 20px;
+    font-weight: 500;
+    font-size: 13px;
+    color: #fff;
+    background: #444;
+    border: 1px solid #333;
+    border-radius: 2px;
+    cursor: pointer;
+    line-height: 38px;
+  }
+
+  .btn-white {
+    display: inline-block;
+    height: 40px;
+    padding: 0 20px;
+    font-weight: 500;
+    font-size: 13px;
+    color: #767676;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 2px;
+    cursor: pointer;
+    line-height: 38px;
+  }
+
+  .btn-teal {
+    display: inline-block;
+    height: 40px;
+    padding: 0 20px;
+    font-weight: 500;
+    font-size: 13px;
+    color: #fff;
+    background: var(--secondary);
+    border: 1px solid var(--secondary-dark);
+    border-radius: 2px;
+    cursor: pointer;
+    line-height: 38px;
+  }
+
+  /* === 섹션 헤더 === */
+  .section-title {
+    position: relative;
+    height: 46px;
+    line-height: 45px;
+    padding: 0 10px;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--t1);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-section);
+  }
+
+  /* === 카드 === */
+  .card {
+    background: var(--bg-white);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* === 탭 === */
+  .tab-basic {
+    display: flex;
+    border-bottom: 1px solid var(--secondary);
+    border-top: 1px solid var(--border);
+    background: #fafafa;
+  }
+
+  .tab-basic a, .tab-basic button {
+    flex: 1;
+    height: 38px;
+    font-weight: 500;
+    font-size: 13px;
+    color: #727272;
+    text-align: center;
+    border: none;
+    background: transparent;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    line-height: 36px;
+  }
+
+  .tab-basic a.active, .tab-basic button.active {
+    font-weight: 700;
+    color: var(--secondary);
+    border-bottom-color: var(--secondary);
+    background: #fff;
+  }
+
+  /* === 인풋 === */
+  .input-basic {
+    width: 100%;
+    height: 40px;
+    padding: 0 10px;
+    font-size: 13px;
+    color: var(--t3);
+    border: 1px solid var(--border);
+    background: #fff;
+    border-radius: 0;
+    outline: none;
+  }
+
+  .input-basic:focus {
+    border-color: var(--primary);
+  }
+
+  /* === 로또볼 === */
+  .lotto-ball {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  /* === 스켈레톤 === */
+  .skeleton {
+    background: linear-gradient(90deg, #eeeeee 25%, #e0e0e0 50%, #eeeeee 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+  }
+
+  /* === ohaeng badge === */
+  .ohaeng-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 2em;
+    background: rgba(0,0,0,0.04);
+    border: 1px solid currentColor;
+  }
+}
+
+/* === 로또볼 색상 === */
+.ball-yellow {
+  background: radial-gradient(circle at 35% 35%, #f5c842, #e4a816);
+  color: #fff;
+  box-shadow: inset 0 -2px 3px rgba(0,0,0,0.2), 0 1px 4px rgba(228,168,22,0.4);
+}
+.ball-blue {
+  background: radial-gradient(circle at 35% 35%, #4db8f0, #1994da);
+  color: #fff;
+  box-shadow: inset 0 -2px 3px rgba(0,0,0,0.2), 0 1px 4px rgba(25,148,218,0.4);
+}
+.ball-red {
+  background: radial-gradient(circle at 35% 35%, #f09080, #e86352);
+  color: #fff;
+  box-shadow: inset 0 -2px 3px rgba(0,0,0,0.2), 0 1px 4px rgba(232,99,82,0.4);
+}
+.ball-gray {
+  background: radial-gradient(circle at 35% 35%, #b8b8b8, #8f8f8f);
+  color: #fff;
+  box-shadow: inset 0 -2px 3px rgba(0,0,0,0.2), 0 1px 4px rgba(143,143,143,0.3);
+}
+.ball-green {
+  background: radial-gradient(circle at 35% 35%, #7ecf66, #5bb544);
+  color: #fff;
+  box-shadow: inset 0 -2px 3px rgba(0,0,0,0.2), 0 1px 4px rgba(91,181,68,0.4);
+}
+.ball-bonus {
+  background: transparent;
+  color: var(--t1);
+  border: 2px solid var(--border-dark);
+}
+
+/* === 애니메이션 === */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up { animation: fadeInUp 0.25s ease-out forwards; }
+
+@keyframes rollBall {
+  0%   { transform: rotateY(0deg); }
+  100% { transform: rotateY(360deg); }
+}
+.ball-rolling { animation: rollBall 0.5s ease-out; }
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
