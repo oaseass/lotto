@@ -1,4 +1,4 @@
-// GET /api/lotto/stores?top=20 or ?region=서울 or ?q=검색어 or ?lat=37.5&lng=126.9&ohaeng=목&radius=2
+// GET /api/lotto/stores?top=20 or ?region=서울 or ?q=검색어 or ?lat=37.5&lng=126.9&ohaeng=목&radius=10
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@prisma/client'
@@ -15,7 +15,6 @@ export async function GET(req: NextRequest) {
   const top = parseInt(searchParams.get('top') || '20')
 
   try {
-    // 인터넷 판매 채널 제외
     const excludeInternet: Prisma.LottoStoreWhereInput = {
       NOT: { address: { contains: 'dhlottery' } },
     }
@@ -40,18 +39,21 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // GPS 검색: 바운딩 박스로 DB 레벨 pre-filter (한국 기준 1도≈111km/88km)
     if (lat && lng) {
+      const latDelta = radius / 111
+      const lngDelta = radius / 88
       where = {
         ...where,
-        lat: { not: null },
-        lng: { not: null },
+        lat: { gte: lat - latDelta, lte: lat + latDelta },
+        lng: { gte: lng - lngDelta, lte: lng + lngDelta },
       }
     }
 
     let stores = await prisma.lottoStore.findMany({
       where,
       orderBy: { winCount1st: 'desc' },
-      take: top * 2, // GPS 필터링 전에 더 많이 가져오기
+      take: lat && lng ? undefined : top * 2, // GPS 검색은 take 제한 없이 전량 조회
       select: {
         id: true,
         name: true,
@@ -65,29 +67,27 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    // GPS 기반 필터링 및 정렬
+    // GPS 기반 정확한 거리 필터링 및 정렬
     if (lat && lng && ohaeng) {
-      const filteredStores = stores
+      const withDistance = stores
         .map(store => {
           if (!store.lat || !store.lng) return null
           const distance = calculateDistance(lat, lng, store.lat, store.lng)
           if (distance > radius) return null
-
           const bearing = calculateBearing(lat, lng, store.lat, store.lng)
           const isLucky = isInLuckyDirection(bearing, ohaeng)
-
           return { ...store, distance, bearing, isLucky }
         })
         .filter((s): s is typeof stores[0] & { distance: number; bearing: number; isLucky: boolean } => s !== null)
         .sort((a, b) => {
-          // 길한 방위 우선, 그 다음 거리순
           if (a.isLucky !== b.isLucky) return a.isLucky ? -1 : 1
           if (a.distance !== b.distance) return a.distance - b.distance
           return b.winCount1st - a.winCount1st
         })
-        .slice(0, top)
 
-      return NextResponse.json(filteredStores)
+      // top개 미만이면 비운 방위 포함해 채워서 반환
+      const result = withDistance.slice(0, top)
+      return NextResponse.json(result)
     }
 
     return NextResponse.json(stores.slice(0, top))

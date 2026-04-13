@@ -65,7 +65,7 @@ export default function SajuStoreModal({ onClose, gpsLocation, userOhaeng, isAdF
     setPhase('loading')
     try {
       const res = await fetch(
-        `/api/lotto/stores?lat=${gpsLocation.lat}&lng=${gpsLocation.lng}&ohaeng=${encodeURIComponent(userOhaeng)}&radius=5&top=20`
+        `/api/lotto/stores?lat=${gpsLocation.lat}&lng=${gpsLocation.lng}&ohaeng=${encodeURIComponent(userOhaeng)}&radius=10&top=3`
       )
       if (!res.ok) throw new Error()
       const data: StoreResult[] = await res.json()
@@ -224,13 +224,14 @@ export default function SajuStoreModal({ onClose, gpsLocation, userOhaeng, isAdF
                   {error || '주변에 추천 판매점이 없습니다'}
                 </p>
                 <p style={{ fontSize: 12, color: '#bbb', marginTop: 6 }}>
-                  현재 위치 5km 이내 데이터 없음
+                  현재 위치 10km 이내 데이터 없음
                 </p>
               </div>
             ) : (
               <>
                 <p style={{ fontSize: 12, color: '#888', marginBottom: 14, textAlign: 'center' }}>
                   현재 위치 기준 <strong style={{ color: '#6d28d9' }}>{userOhaeng} 오행 길한 방위</strong> 추천 TOP {stores.length}
+                  <span style={{ color: '#aaa', fontWeight: 400 }}> · 반경 10km</span>
                 </p>
 
                 {(() => {
