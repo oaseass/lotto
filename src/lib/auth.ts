@@ -56,19 +56,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.id = user.id
         // 로그인 시 1회만 DB 조회 → JWT에 저장
-        const dbUser = await prisma.user.findUnique({
-          where: { id: user.id as string },
-          select: { isAdFree: true },
-        })
+        const [dbUser, sajuProfile] = await Promise.all([
+          prisma.user.findUnique({
+            where: { id: user.id as string },
+            select: { isAdFree: true },
+          }),
+          prisma.sajuProfile.findUnique({
+            where: { userId: user.id as string },
+            select: { yongsin: true },
+          }),
+        ])
         token.isAdFree = dbUser?.isAdFree ?? false
+        token.yongsin = sajuProfile?.yongsin ?? null
       }
-      // 결제 완료 후 session.update() 호출 시에만 재조회
+      // 결제 완료 또는 사주 프로필 저장 후 session.update() 호출 시 재조회
       if (trigger === 'update' && token.id) {
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.id as string },
-          select: { isAdFree: true },
-        })
+        const [dbUser, sajuProfile] = await Promise.all([
+          prisma.user.findUnique({
+            where: { id: token.id as string },
+            select: { isAdFree: true },
+          }),
+          prisma.sajuProfile.findUnique({
+            where: { userId: token.id as string },
+            select: { yongsin: true },
+          }),
+        ])
         token.isAdFree = dbUser?.isAdFree ?? false
+        token.yongsin = sajuProfile?.yongsin ?? null
       }
       return token
     },
@@ -76,6 +90,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (token.id) {
         session.user.id = token.id as string
         session.user.isAdFree = (token.isAdFree as boolean) ?? false
+        session.user.yongsin = (token.yongsin as string | null) ?? null
       }
       return session
     },

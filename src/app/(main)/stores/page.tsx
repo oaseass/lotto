@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
@@ -39,23 +39,13 @@ interface TopStore {
 export default function StoresPage() {
   const { data: session } = useSession()
   const isAdFree = session?.user?.isAdFree ?? false
+  const userOhaeng = session?.user?.yongsin ?? null
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
   const [showSajuModal, setShowSajuModal] = useState(false)
   const [gpsLocation, setGpsLocation] = useState<{ lat: number; lng: number } | null>(null)
-  const [userOhaeng, setUserOhaeng] = useState<string | null>(null)
   const [permission, setPermission] = useState<'pending' | 'granted' | 'denied'>('pending')
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
-
-  // 사주 프로필 로드
-  useEffect(() => {
-    if (session && !userOhaeng) {
-      fetch('/api/saju/profile')
-        .then(r => r.ok ? r.json() : null)
-        .then(p => p?.yongsin && setUserOhaeng(p.yongsin))
-        .catch(() => {})
-    }
-  }, [session, userOhaeng])
 
   // GPS 위치 요청
   const requestGpsAndOpenModal = () => {

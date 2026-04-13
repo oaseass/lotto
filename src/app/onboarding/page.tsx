@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import { useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 
@@ -9,6 +10,7 @@ const STEPS = ['기본정보', '생년월일', '출생시간']
 
 export default function OnboardingPage() {
   const router = useRouter()
+  const { update: updateSession } = useSession()
   const queryClient = useQueryClient()
   const [step, setStep] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
@@ -59,6 +61,7 @@ export default function OnboardingPage() {
         queryClient.invalidateQueries({ queryKey: ['saju-profile-mypage'] }),
         queryClient.invalidateQueries({ queryKey: ['saju-profile-edit'] }),
       ])
+      await updateSession()
       router.push('/home')
     } finally {
       setIsLoading(false)
