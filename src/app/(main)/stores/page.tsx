@@ -42,6 +42,8 @@ export default function StoresPage() {
   const [gpsLocation, setGpsLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [userOhaeng, setUserOhaeng] = useState<string | null>(null)
   const [permission, setPermission] = useState<'pending' | 'granted' | 'denied'>('pending')
+  const [searchInput, setSearchInput] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
 
   // 사주 프로필 로드
   useEffect(() => {
@@ -69,12 +71,14 @@ export default function StoresPage() {
   }
 
   const { data: dbStores, isLoading } = useQuery<TopStore[]>({
-    queryKey: ['stores', selectedRegion, gpsLocation, userOhaeng, showSajuRecommend],
+    queryKey: ['stores', selectedRegion, gpsLocation, userOhaeng, showSajuRecommend, searchQuery],
     queryFn: async () => {
       let url = '/api/lotto/stores'
 
       if (showSajuRecommend && gpsLocation && userOhaeng) {
         url += `?lat=${gpsLocation.lat}&lng=${gpsLocation.lng}&ohaeng=${userOhaeng}&radius=2&top=10`
+      } else if (searchQuery) {
+        url += `?q=${encodeURIComponent(searchQuery)}&top=30`
       } else if (selectedRegion) {
         url += `?region=${encodeURIComponent(selectedRegion)}`
       } else {
@@ -101,35 +105,57 @@ export default function StoresPage() {
         </p>
       </div>
 
-      {/* ── 공식 사이트 바로가기 ── */}
+      {/* ── 판매점 검색 ── */}
       <div style={{
         background: '#fff', borderBottom: '1px solid #dcdcdc',
-        padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12,
-        marginBottom: 8,
+        padding: '12px 16px', marginBottom: 8,
       }}>
-        <div style={{
-          width: 36, height: 36, borderRadius: 4,
-          background: '#f0f7ff',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0, fontSize: 18,
-        }}>🔍</div>
-        <div style={{ flex: 1 }}>
-          <p style={{ fontSize: 13, fontWeight: 600, color: '#333', marginBottom: 1 }}>동행복권 공식 판매점 검색</p>
-          <p style={{ fontSize: 11, color: '#888' }}>내 주변 모든 판매점 실시간 검색</p>
-        </div>
-        <a
-          href="https://www.dhlottery.co.kr/store.do?method=topStore&pageGubun=L645"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            padding: '6px 12px',
-            background: '#007bc3', color: '#fff',
-            fontSize: 12, fontWeight: 700,
-            textDecoration: 'none', borderRadius: 2, flexShrink: 0,
+        <p style={{ fontSize: 12, fontWeight: 700, color: '#333', marginBottom: 8 }}>판매점 검색</p>
+        <form
+          onSubmit={e => {
+            e.preventDefault()
+            setSearchQuery(searchInput)
+            setSelectedRegion(null)
+            setShowSajuRecommend(false)
           }}
+          style={{ display: 'flex', gap: 8 }}
         >
-          검색하기
-        </a>
+          <input
+            type="text"
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
+            placeholder="상호명 또는 주소 입력"
+            style={{
+              flex: 1, height: 36, padding: '0 10px',
+              border: '1px solid #dcdcdc', borderRadius: 4,
+              fontSize: 13, outline: 'none',
+            }}
+          />
+          <button
+            type="submit"
+            style={{
+              height: 36, padding: '0 14px',
+              background: '#007bc3', color: '#fff',
+              fontSize: 12, fontWeight: 700,
+              border: 'none', borderRadius: 4, cursor: 'pointer', flexShrink: 0,
+            }}
+          >
+            검색
+          </button>
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => { setSearchInput(''); setSearchQuery('') }}
+              style={{
+                height: 36, padding: '0 12px',
+                background: '#f5f5f5', color: '#555',
+                fontSize: 12, border: '1px solid #dcdcdc', borderRadius: 4, cursor: 'pointer', flexShrink: 0,
+              }}
+            >
+              초기화
+            </button>
+          )}
+        </form>
       </div>
 
       {/* ── 지역 선택 ── */}
@@ -140,6 +166,8 @@ export default function StoresPage() {
             onClick={() => {
               setSelectedRegion(null)
               setShowSajuRecommend(false)
+              setSearchInput('')
+              setSearchQuery('')
             }}
             style={{
               padding: '5px 12px', borderRadius: 14,
@@ -156,6 +184,8 @@ export default function StoresPage() {
               onClick={() => {
                 setSelectedRegion(r === selectedRegion ? null : r)
                 setShowSajuRecommend(false)
+                setSearchInput('')
+                setSearchQuery('')
               }}
               style={{
                 padding: '5px 10px', borderRadius: 14,
@@ -225,8 +255,9 @@ export default function StoresPage() {
           padding: '10px 16px 8px', borderBottom: '1px solid #f0f0f0',
         }}>
           <p style={{ fontSize: 13, fontWeight: 700, color: '#333' }}>
-            🏆 {showSajuRecommend ? '사주 궁합 판매점' : '1등 다수 배출 판매점'}
-            {selectedRegion && !showSajuRecommend && <span style={{ color: '#007bc3', marginLeft: 4 }}>({selectedRegion})</span>}
+            🏆 {showSajuRecommend ? '사주 궁합 판매점' : searchQuery ? '검색 결과' : '1등 다수 배출 판매점'}
+            {selectedRegion && !showSajuRecommend && !searchQuery && <span style={{ color: '#007bc3', marginLeft: 4 }}>({selectedRegion})</span>}
+            {searchQuery && <span style={{ color: '#007bc3', marginLeft: 4 }}>"{searchQuery}"</span>}
           </p>
           {isLoading && <span style={{ fontSize: 11, color: '#888' }}>로딩 중...</span>}
         </div>

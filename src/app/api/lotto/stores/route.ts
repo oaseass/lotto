@@ -1,4 +1,4 @@
-// GET /api/lotto/stores?top=20 or ?region=서울 or ?lat=37.5&lng=126.9&ohaeng=목&radius=2
+// GET /api/lotto/stores?top=20 or ?region=서울 or ?q=검색어 or ?lat=37.5&lng=126.9&ohaeng=목&radius=2
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@prisma/client'
@@ -7,6 +7,7 @@ import { calculateDistance, calculateBearing, isInLuckyDirection } from '@/lib/s
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const region = searchParams.get('region')
+  const q = searchParams.get('q')?.trim()
   const lat = searchParams.get('lat') ? parseFloat(searchParams.get('lat')!) : null
   const lng = searchParams.get('lng') ? parseFloat(searchParams.get('lng')!) : null
   const ohaeng = searchParams.get('ohaeng')
@@ -14,7 +15,6 @@ export async function GET(req: NextRequest) {
   const top = parseInt(searchParams.get('top') || '20')
 
   try {
-    // 지역별 필터링 OR 조건으로 주소나 district에서 검색
     // 인터넷 판매 채널 제외
     const excludeInternet: Prisma.LottoStoreWhereInput = {
       NOT: { address: { contains: 'dhlottery' } },
@@ -22,7 +22,15 @@ export async function GET(req: NextRequest) {
 
     let where: Prisma.LottoStoreWhereInput = excludeInternet
 
-    if (region) {
+    if (q) {
+      where = {
+        ...excludeInternet,
+        OR: [
+          { name: { contains: q } },
+          { address: { contains: q } },
+        ],
+      }
+    } else if (region) {
       where = {
         ...excludeInternet,
         OR: [
