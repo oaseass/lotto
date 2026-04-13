@@ -30,14 +30,73 @@ const OHAENG_COLOR: Record<string, string> = {
 const OHAENG_HANJA: Record<string, string> = {
   목: '木', 화: '火', 토: '土', 금: '金', 수: '水',
 }
-const OHAENG_LUCKY_NUM: Record<string, string> = {
-  목: '3, 8', 화: '2, 7', 토: '5, 10', 금: '4, 9', 수: '1, 6',
+
+// 오행별 행운 번호 끝자리 풀 → 날짜마다 다른 2개 선택
+const OHAENG_NUM_POOL: Record<string, number[][]> = {
+  목: [[3,13,23,33,43], [8,18,28,38]],
+  화: [[2,12,22,32,42], [7,17,27,37]],
+  토: [[5,15,25,35,45], [10,20,30,40]],
+  금: [[4,14,24,34,44], [9,19,29,39]],
+  수: [[1,11,21,31,41], [6,16,26,36]],
 }
-const OHAENG_LUCKY_COLOR: Record<string, string> = {
-  목: '초록, 파랑', 화: '빨강, 주황', 토: '황토, 노랑', 금: '흰색, 금색', 수: '검정, 감색',
+
+// 오행별 행운 색상 풀
+const OHAENG_COLOR_POOL: Record<string, string[]> = {
+  목: ['초록', '연두', '파랑', '청록', '민트', '올리브', '에메랄드'],
+  화: ['빨강', '주황', '분홍', '코랄', '버건디', '스칼렛', '오렌지'],
+  토: ['황토', '노랑', '베이지', '갈색', '골드', '카키', '머스타드'],
+  금: ['흰색', '금색', '은색', '아이보리', '크림', '샴페인', '펄'],
+  수: ['검정', '감색', '남색', '회색', '슬레이트', '차콜', '인디고'],
 }
-const OHAENG_LUCKY_DIR: Record<string, string> = {
-  목: '동쪽', 화: '남쪽', 토: '중앙', 금: '서쪽', 수: '북쪽',
+
+// 오행별 행운 방위 풀
+const OHAENG_DIR_POOL: Record<string, string[]> = {
+  목: ['동쪽', '북동쪽', '동남쪽'],
+  화: ['남쪽', '동남쪽', '남서쪽'],
+  토: ['중앙', '서남쪽', '동북쪽'],
+  금: ['서쪽', '북서쪽', '서남쪽'],
+  수: ['북쪽', '북동쪽', '북서쪽'],
+}
+
+// 오행별 행운 오행 풀 (본인+상생 오행)
+const OHAENG_LUCKY_EL_POOL: Record<string, string[]> = {
+  목: ['목(木)', '수(水)', '목(木)·수(水)', '목(木)·화(火)'],
+  화: ['화(火)', '목(木)', '화(火)·목(木)', '화(火)·토(土)'],
+  토: ['토(土)', '화(火)', '토(土)·화(火)', '토(土)·금(金)'],
+  금: ['금(金)', '토(土)', '금(金)·토(土)', '금(金)·수(水)'],
+  수: ['수(水)', '금(金)', '수(水)·금(金)', '수(水)·목(木)'],
+}
+
+function dailySeed(iljuChar: string, date: Date, salt: number): number {
+  const iljuIdx = '갑을병정무기경신임계'.indexOf(iljuChar) + 1
+  const dateNum = date.getFullYear() * 10000 + (date.getMonth() + 1) * 100 + date.getDate()
+  return Math.abs((dateNum * 31337 + iljuIdx * 7919 + salt) | 0)
+}
+
+function getDailyLuckyNums(yongsin: string, iljuChar: string, date: Date): string {
+  const pools = OHAENG_NUM_POOL[yongsin]
+  if (!pools) return '3, 8'
+  const n1 = pools[0][dailySeed(iljuChar, date, 11) % pools[0].length]
+  const n2 = pools[1][dailySeed(iljuChar, date, 22) % pools[1].length]
+  return `${n1}, ${n2}`
+}
+
+function getDailyLuckyColor(yongsin: string, iljuChar: string, date: Date): string {
+  const pool = OHAENG_COLOR_POOL[yongsin] ?? []
+  const i1 = dailySeed(iljuChar, date, 33) % pool.length
+  const i2 = dailySeed(iljuChar, date, 44) % pool.length
+  const c1 = pool[i1], c2 = pool[i2]
+  return c1 === c2 ? c1 : `${c1}, ${c2}`
+}
+
+function getDailyLuckyDir(yongsin: string, iljuChar: string, date: Date): string {
+  const pool = OHAENG_DIR_POOL[yongsin] ?? ['중앙']
+  return pool[dailySeed(iljuChar, date, 55) % pool.length]
+}
+
+function getDailyLuckyEl(yongsin: string, iljuChar: string, date: Date): string {
+  const pool = OHAENG_LUCKY_EL_POOL[yongsin] ?? [`${yongsin}(${OHAENG_HANJA[yongsin]})`]
+  return pool[dailySeed(iljuChar, date, 66) % pool.length]
 }
 
 const ILJU_FULL: Record<string, { trait: string; fortune: string; caution: string }> = {
@@ -186,10 +245,7 @@ const DAILY_CAUTION_POOL: Record<string, string[]> = {
 
 // 날짜 + 일주 기반으로 오늘의 운세/주의사항 선택 (같은 날 같은 사람 = 항상 같은 문구)
 function getDailyMsg(pool: string[], iljuChar: string, date: Date, salt: number): string {
-  const iljuIdx = '갑을병정무기경신임계'.indexOf(iljuChar)
-  const dateNum = date.getFullYear() * 10000 + (date.getMonth() + 1) * 100 + date.getDate()
-  const hash = Math.abs((dateNum * 31337 + (iljuIdx + 1) * 7919 + salt) | 0)
-  return pool[hash % pool.length]
+  return pool[dailySeed(iljuChar, date, salt) % pool.length]
 }
 
 function getDailyFortune(iljuChar: string, date: Date): string {
@@ -534,10 +590,10 @@ export default function FortunePage() {
           <p style={{ fontSize: 13, fontWeight: 700, color: '#333', marginBottom: 12 }}>🍀 {dateLabel} 행운</p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             {[
-              { label: '행운 번호', value: OHAENG_LUCKY_NUM[yongsin], icon: '🔢' },
-              { label: '행운 색상', value: OHAENG_LUCKY_COLOR[yongsin], icon: '🎨' },
-              { label: '행운 방위', value: OHAENG_LUCKY_DIR[yongsin], icon: '🧭' },
-              { label: '행운 오행', value: `${yongsin}(${OHAENG_HANJA[yongsin]})`, icon: '⚡' },
+              { label: '행운 번호', value: getDailyLuckyNums(yongsin, iljuChar, targetDate), icon: '🔢' },
+              { label: '행운 색상', value: getDailyLuckyColor(yongsin, iljuChar, targetDate), icon: '🎨' },
+              { label: '행운 방위', value: getDailyLuckyDir(yongsin, iljuChar, targetDate), icon: '🧭' },
+              { label: '행운 오행', value: getDailyLuckyEl(yongsin, iljuChar, targetDate), icon: '⚡' },
             ].map(({ label, value, icon }) => (
               <div key={label} style={{
                 background: '#f7f7f7', borderRadius: 4,
