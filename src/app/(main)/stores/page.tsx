@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
@@ -39,7 +39,7 @@ interface TopStore {
 export default function StoresPage() {
   const { data: session, update: updateSession } = useSession()
   const isAdFree = session?.user?.isAdFree ?? false
-  const userOhaeng = session?.user?.yongsin ?? null
+  const sessionOhaeng = session?.user?.yongsin ?? null
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
   const [showSajuModal, setShowSajuModal] = useState(false)
   const [gpsLocation, setGpsLocation] = useState<{ lat: number; lng: number } | null>(null)
@@ -47,10 +47,21 @@ export default function StoresPage() {
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
 
-  // 기존 JWT에 yongsin이 없는 경우(로그인 상태 유지) 토큰 갱신
-  useEffect(() => {
-    if (session?.user?.id) updateSession()
-  }, [session?.user?.id])
+  // 구 JWT 토큰에 yongsin 없으면 API 폴백 (1회 호출 후 캐시, 동시에 JWT 갱신)
+  const { data: profileOhaeng } = useQuery<string | null>({
+    queryKey: ['yongsin-fallback'],
+    queryFn: async () => {
+      const res = await fetch('/api/saju/profile')
+      if (!res.ok) return null
+      const data = await res.json()
+      updateSession()
+      return data?.yongsin ?? null
+    },
+    enabled: !!session && sessionOhaeng === null,
+    staleTime: Infinity,
+  })
+
+  const userOhaeng = sessionOhaeng ?? profileOhaeng ?? null
 
   // GPS 위치 요청
   const requestGpsAndOpenModal = () => {
