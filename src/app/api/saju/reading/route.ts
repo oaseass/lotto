@@ -21,7 +21,8 @@ export async function POST() {
 
     const cheonjigan = calculateSaju(sy, sm, sd, profile.birthHour)
     const ohaeng = (profile.ohaeng as any) ?? calculateOhaengRatio(cheonjigan)
-    const yongsin = profile.yongsin ?? calculateYongsin(ohaeng)
+    const yongsinArr = profile.yongsin ? profile.yongsin.split(',') : null
+    const yongsin = yongsinArr?.[0] ?? calculateYongsin(ohaeng)[0]
     const gender = (profile as any).gender === 'F' ? 'F' : 'M'
     const daeun = calculateDaeun(sy, sm, sd, gender, cheonjigan.month, cheonjigan.year)
 

@@ -28,6 +28,8 @@ interface Props {
 }
 
 export default function SajuStoreModal({ onClose, userOhaeng, isAdFree }: Props) {
+  const weakElements = userOhaeng.split(',').filter(Boolean) // ["수", "토"] 등
+  const primary = weakElements[0] || '수'
   const [phase, setPhase] = useState<'ad' | 'loading' | 'result'>(isAdFree ? 'loading' : 'ad')
   const [countdown, setCountdown] = useState(5)
   const [stores, setStores] = useState<StoreResult[]>([])
@@ -99,9 +101,14 @@ export default function SajuStoreModal({ onClose, userOhaeng, isAdFree }: Props)
           <div>
             <p style={{ fontSize: 14, fontWeight: 700, color: '#6d28d9' }}>🧭 사주 맞춤 판매점 추천</p>
             <p style={{ fontSize: 11, color: '#888', marginTop: 2 }}>
-              용신 <span style={{ color: OHAENG_COLOR[userOhaeng] || '#6d28d9', fontWeight: 700 }}>
-                {OHAENG_LABEL[userOhaeng] || userOhaeng}
-              </span> 기반 · 지역오행 + 번지수리 + 당첨실적 종합
+              {weakElements.map((w, i) => (
+                <span key={w}>
+                  <span style={{ color: OHAENG_COLOR[w] || '#6d28d9', fontWeight: 700 }}>
+                    {OHAENG_LABEL[w] || w}
+                  </span>
+                  {i < weakElements.length - 1 ? ' · ' : ''}
+                </span>
+              ))} 기운이 닿는 곳을 찾아드립니다
             </p>
           </div>
           <button onClick={onClose} style={{
@@ -121,33 +128,13 @@ export default function SajuStoreModal({ onClose, userOhaeng, isAdFree }: Props)
           }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>🎁</div>
             <p style={{ fontSize: 14, fontWeight: 700, color: '#333', marginBottom: 6, textAlign: 'center' }}>
-              광고를 시청하면
+              잠깐, 운명의 실을 잇는 중
             </p>
-            <p style={{ fontSize: 13, color: '#555', textAlign: 'center', lineHeight: 1.7, marginBottom: 20 }}>
-              <strong style={{ color: '#6d28d9' }}>전국에서 내 사주와 가장 잘 맞는</strong><br/>
-              판매점 3곳을 찍어드립니다
+            <p style={{ fontSize: 13, color: '#555', textAlign: 'center', lineHeight: 1.8, marginBottom: 20 }}>
+              천지의 기운과 수리의 흐름을 읽어<br/>
+              <strong style={{ color: '#6d28d9' }}>당신의 사주와 가장 잘 맞는</strong><br/>
+              판매점 3곳을 점지해 드립니다
             </p>
-
-            {/* 선정 기준 설명 */}
-            <div style={{
-              width: '100%', background: '#f5f0ff', borderRadius: 8,
-              padding: '10px 14px', marginBottom: 16,
-            }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: '#6d28d9', marginBottom: 6 }}>선정 기준</p>
-              {[
-                { icon: '🗺️', label: '지역 오행 (50점)', desc: '한반도 방위 기준 지역의 오행 일치 여부' },
-                { icon: '🔢', label: '번지 수리 (20점)', desc: '판매점 번지번호 수리 오행 일치 여부' },
-                { icon: '🏆', label: '당첨 실적 (30점)', desc: '역대 1등 당첨 횟수 반영' },
-              ].map(({ icon, label, desc }) => (
-                <div key={label} style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
-                  <span style={{ fontSize: 13, flexShrink: 0 }}>{icon}</span>
-                  <div>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#555' }}>{label}</span>
-                    <span style={{ fontSize: 11, color: '#888' }}> — {desc}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
 
             {/* 광고 영역 */}
             <div style={{
@@ -206,9 +193,9 @@ export default function SajuStoreModal({ onClose, userOhaeng, isAdFree }: Props)
         {phase === 'loading' && (
           <div style={{ padding: '60px 16px', textAlign: 'center', flex: 1 }}>
             <div style={{ fontSize: 40, marginBottom: 14 }}>🔮</div>
-            <p style={{ fontSize: 13, fontWeight: 600, color: '#6d28d9', marginBottom: 6 }}>사주 분석 중...</p>
+            <p style={{ fontSize: 13, fontWeight: 600, color: '#6d28d9', marginBottom: 6 }}>운명의 실을 잇는 중...</p>
             <p style={{ fontSize: 12, color: '#888' }}>
-              {OHAENG_LABEL[userOhaeng]} 용신 기준 전국 판매점 분석 중
+              {weakElements.map(w => OHAENG_LABEL[w]).join(' · ')} 기운이 닿는 곳을 찾고 있습니다
             </p>
           </div>
         )}
@@ -223,8 +210,8 @@ export default function SajuStoreModal({ onClose, userOhaeng, isAdFree }: Props)
             ) : (
               <>
                 <p style={{ fontSize: 12, color: '#888', marginBottom: 14, textAlign: 'center' }}>
-                  <strong style={{ color: '#6d28d9' }}>{OHAENG_LABEL[userOhaeng]} 용신</strong> 기준
-                  전국 판매점 사주 궁합 TOP {stores.length}
+                  <strong style={{ color: '#6d28d9' }}>{weakElements.map(w => OHAENG_LABEL[w]).join(' · ')}</strong> 부족 기운을<br/>
+                  가장 잘 채워줄 판매점 {stores.length}곳을 점지했습니다
                 </p>
 
                 {stores.map((store, i) => (
@@ -256,24 +243,28 @@ export default function SajuStoreModal({ onClose, userOhaeng, isAdFree }: Props)
 
                         {/* 선정 이유 뱃지 */}
                         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 4 }}>
-                          {store.regionOhaeng === userOhaeng && (
-                            <span style={{
-                              fontSize: 10, fontWeight: 700,
-                              background: OHAENG_COLOR[userOhaeng] || '#6d28d9',
-                              color: '#fff', padding: '2px 7px', borderRadius: 10,
-                            }}>
-                              🗺️ 지역오행 {OHAENG_LABEL[store.regionOhaeng]}
-                            </span>
-                          )}
-                          {store.numOhaeng === userOhaeng && (
-                            <span style={{
-                              fontSize: 10, fontWeight: 700,
-                              background: '#6d28d9', color: '#fff',
-                              padding: '2px 7px', borderRadius: 10,
-                            }}>
-                              🔢 번지수리 {OHAENG_LABEL[store.numOhaeng]}
-                            </span>
-                          )}
+                          {weakElements.map((w, idx) => (
+                            store.regionOhaeng === w && (
+                              <span key={`r${w}`} style={{
+                                fontSize: 10, fontWeight: 700,
+                                background: OHAENG_COLOR[w] || '#6d28d9',
+                                color: '#fff', padding: '2px 7px', borderRadius: 10,
+                              }}>
+                                🌏 {idx === 0 ? '핵심' : idx === 1 ? '보조' : '3차'} 방위 일치
+                              </span>
+                            )
+                          ))}
+                          {weakElements.map((w, idx) => (
+                            store.numOhaeng === w && (
+                              <span key={`n${w}`} style={{
+                                fontSize: 10, fontWeight: 700,
+                                background: '#6d28d9', color: '#fff',
+                                padding: '2px 7px', borderRadius: 10,
+                              }}>
+                                ✨ {idx === 0 ? '핵심' : idx === 1 ? '보조' : '3차'} 수리 일치
+                              </span>
+                            )
+                          ))}
                           <span style={{
                             fontSize: 10, fontWeight: 700,
                             background: '#dc1f1f', color: '#fff',
@@ -288,7 +279,7 @@ export default function SajuStoreModal({ onClose, userOhaeng, isAdFree }: Props)
                       {store.sajuScore !== undefined && (
                         <div style={{
                           width: 46, height: 46, borderRadius: '50%', flexShrink: 0,
-                          background: `conic-gradient(${OHAENG_COLOR[userOhaeng] || '#6d28d9'} ${store.sajuScore * 3.6}deg, #eee ${store.sajuScore * 3.6}deg)`,
+                          background: `conic-gradient(${OHAENG_COLOR[primary] || '#6d28d9'} ${store.sajuScore * 3.6}deg, #eee ${store.sajuScore * 3.6}deg)`,
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
                           <div style={{
@@ -306,7 +297,7 @@ export default function SajuStoreModal({ onClose, userOhaeng, isAdFree }: Props)
                 ))}
 
                 <p style={{ fontSize: 10, color: '#ccc', textAlign: 'center', marginTop: 4, lineHeight: 1.6 }}>
-                  지역오행(50) + 번지수리(20) + 당첨실적(30) 합산 · 전국 상위 200개 대상
+                  방위의 기운 · 수리의 흐름 · 당첨의 실적을 종합하여 선정
                 </p>
               </>
             )}

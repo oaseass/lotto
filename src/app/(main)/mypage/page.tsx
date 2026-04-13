@@ -199,7 +199,7 @@ export default function MyPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{
               width: 44, height: 44, borderRadius: 4, flexShrink: 0,
-              background: sajuProfile.yongsin ? OHAENG_COLOR[sajuProfile.yongsin] : '#007bc3',
+              background: sajuProfile.yongsin ? OHAENG_COLOR[sajuProfile.yongsin.split(',')[0]] : '#007bc3',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 18, fontWeight: 900, color: '#fff',
             }}>
@@ -207,7 +207,7 @@ export default function MyPage() {
             </div>
             <div>
               <p style={{ fontSize: 14, fontWeight: 700, color: '#333', marginBottom: 2 }}>
-                {sajuProfile.ilju}일주 · 용신 {sajuProfile.yongsin}
+                {sajuProfile.ilju}일주 · 부족기운 {sajuProfile.yongsin?.split(',').join('·')}
               </p>
               <p style={{ fontSize: 12, color: '#888' }}>
                 {sajuProfile.birthYear}.{String(sajuProfile.birthMonth).padStart(2,'0')}.{String(sajuProfile.birthDay).padStart(2,'0')}
@@ -253,7 +253,7 @@ export default function MyPage() {
                 overflow: 'hidden',
               }}>
                 <div style={{
-                  background: sajuProfile.yongsin ? OHAENG_COLOR[sajuProfile.yongsin] : '#007bc3',
+                  background: sajuProfile.yongsin ? OHAENG_COLOR[sajuProfile.yongsin.split(',')[0]] : '#007bc3',
                   padding: '10px 14px',
                 }}>
                   <p style={{ fontSize: 14, fontWeight: 900, color: '#fff', marginBottom: 2 }}>

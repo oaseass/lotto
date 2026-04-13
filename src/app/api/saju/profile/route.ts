@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     // 사주 계산 (양력 기준)
     const cheonjigan = calculateSaju(solarYear, solarMonth, solarDay, birthHour ?? null)
     const ohaeng = calculateOhaengRatio(cheonjigan)
-    const yongsin = calculateYongsin(ohaeng)
+    const yongsin = calculateYongsin(ohaeng).join(',')
     const ilju = `${cheonjigan.day.cheongan}${cheonjigan.day.jiji}`
 
     const profile = await prisma.sajuProfile.upsert({

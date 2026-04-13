@@ -20,40 +20,33 @@ export function generateLottoNumbers(
   ohaeng: OhaengRatio,
   targetDate: Date
 ): number[] {
-  const yongsin = calculateYongsin(ohaeng)
-  const sangsaeng = OHAENG_SANGSAENG[yongsin]
+  const weakElements = calculateYongsin(ohaeng) // Ohaeng[] 1~3개
+  const primary = weakElements[0]
 
-  // 조회 날짜의 일진
+  // 오늘 일진
   const todayPillar = getDayPillar(
     targetDate.getFullYear(),
     targetDate.getMonth() + 1,
     targetDate.getDate()
   )
   const todayOhaeng = JIJI_OHAENG[todayPillar.jiji]
-  const todayCheonganOhaeng = CHEONGAN_OHAENG[todayPillar.cheongan]
 
-  // 번호 풀 구성 (용신 + 상생 + 오늘 일진 오행)
-  const primaryPool = OHAENG_NUMBERS[yongsin]       // 용신 오행 번호 (3개)
-  const secondaryPool = OHAENG_NUMBERS[sangsaeng]   // 상생 오행 번호 (2개)
-  const todayPool = OHAENG_NUMBERS[todayOhaeng]     // 오늘 일진 오행 (1개)
+  // 2순위: 두 번째 부족기운 or 상생 오행
+  const secondary = weakElements[1] ?? OHAENG_SANGSAENG[primary]
+  // 3순위: 세 번째 부족기운 or 오늘 일진
+  const tertiary = weakElements[2] ?? todayOhaeng
 
-  // 시드 생성 (사주 + 날짜 기반 결정론적)
   const seed = createSeed(cheonjigan, targetDate)
-
-  // 각 풀에서 번호 추출
   const numbers = new Set<number>()
 
-  // 용신 오행에서 3개
-  pickFromPool(primaryPool, 3, seed, numbers)
-  // 상생 오행에서 2개
-  pickFromPool(secondaryPool, 2, seed + 1, numbers)
-  // 오늘 일진에서 1개
-  pickFromPool(todayPool, 1, seed + 2, numbers)
+  pickFromPool(OHAENG_NUMBERS[primary], 3, seed, numbers)
+  pickFromPool(OHAENG_NUMBERS[secondary], 2, seed + 1, numbers)
+  pickFromPool(OHAENG_NUMBERS[tertiary], 1, seed + 2, numbers)
 
   // 6개 미만이면 보완
   if (numbers.size < 6) {
-    const allPool = OHAENG_NUMBERS[todayCheonganOhaeng]
-    pickFromPool(allPool, 6 - numbers.size, seed + 3, numbers)
+    const todayCGOhaeng = CHEONGAN_OHAENG[todayPillar.cheongan]
+    pickFromPool(OHAENG_NUMBERS[todayCGOhaeng], 6 - numbers.size, seed + 3, numbers)
   }
 
   return Array.from(numbers).sort((a, b) => a - b)
@@ -121,7 +114,7 @@ export function buildReasonPrompt(
   ohaeng: OhaengRatio,
   numbers: number[],
   targetDate: Date,
-  yongsin: Ohaeng
+  weakElements: Ohaeng[]
 ): string {
   const todayPillar = getDayPillar(
     targetDate.getFullYear(),
@@ -134,7 +127,7 @@ export function buildReasonPrompt(
 사주 정보:
 - 일주: ${cheonjigan.day.cheongan}${cheonjigan.day.jiji}
 - 오행 분포: 목${ohaeng.목} 화${ohaeng.화} 토${ohaeng.토} 금${ohaeng.금} 수${ohaeng.수}
-- 용신: ${yongsin}
+- 부족한 기운: ${weakElements.join(', ')}
 - 오늘 일진: ${todayPillar.cheongan}${todayPillar.jiji}
 
 선택된 번호: ${numbers.join(', ')}

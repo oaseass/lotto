@@ -184,35 +184,17 @@ export function calculateOhaengRatio(cheonjigan: Cheonjigan): OhaengRatio {
 }
 
 /**
- * 용신 계산 (개선 버전)
- * 1. 일간의 강약 판별 (신강/신약)
- * 2. 부재하거나 가장 약한 오행 파악
- * 3. 균형을 보완하는 오행을 용신으로 결정
+ * 부족한 오행 계산: 평균 미만인 오행을 최대 3개까지 반환 (가장 부족한 순)
+ * DB 저장 시 join(',') → "수,토" 형태로 저장
  */
-export function calculateYongsin(ohaeng: OhaengRatio, ilju?: string): Ohaeng {
+export function calculateYongsin(ohaeng: OhaengRatio): Ohaeng[] {
   const entries = Object.entries(ohaeng) as [Ohaeng, number][]
-  entries.sort((a, b) => a[1] - b[1])
-
-  // 0인 오행이 있으면 최우선 보완 대상
-  const absent = entries.filter(([, v]) => v === 0)
-  if (absent.length > 0) {
-    // 부재 오행 중 상생으로 보완 가능한 것 우선
-    const weakest = absent[0][0]
-    return OHAENG_SANGSAENG[weakest] // 약한 오행을 생해주는 오행
-  }
-
-  // 가장 약한 오행을 생해주는 오행
-  const weakest  = entries[0][0]
-  const strongest = entries[entries.length - 1][0]
-
-  // 강한 오행이 압도적(2배 이상)이면 강한 쪽을 극하는 오행을 용신으로
-  if (entries[entries.length - 1][1] >= entries[0][1] * 2.5) {
-    // 오행 상극: 목극토, 토극수, 수극화, 화극금, 금극목
-    const SANGGEUIK: Record<Ohaeng, Ohaeng> = {
-      목: '금', 화: '수', 토: '목', 금: '화', 수: '토',
-    }
-    return SANGGEUIK[strongest]
-  }
-
-  return OHAENG_SANGSAENG[weakest]
+  const avg = entries.reduce((s, [, v]) => s + v, 0) / 5
+  const weak = entries
+    .filter(([, v]) => v < avg)
+    .sort((a, b) => a[1] - b[1])
+    .slice(0, 3)
+    .map(([k]) => k)
+  // 모두 평균 이상이면 가장 작은 1개
+  return weak.length > 0 ? weak : [entries.sort((a, b) => a[1] - b[1])[0][0]]
 }

@@ -397,12 +397,14 @@ export default function FortunePage() {
   }
 
   const { ilju, yongsin, ohaeng, cheonjigan } = profile
+  const weakArr = yongsin ? yongsin.split(',').filter(Boolean) : []
+  const primaryYongsin = weakArr[0] || ''
   const iljuChar = ilju?.[0] || ''
   const iljuJiji = ilju?.[1] || ''
   const iljuInfo = ILJU_FULL[iljuChar]
   const ohaengEntries = ohaeng ? Object.entries(ohaeng).sort((a, b) => b[1] - a[1]) : []
   const totalOhaeng = ohaengEntries.reduce((s, [, v]) => s + v, 0)
-  const fortuneScore = getFortuneScore(yongsin, targetDate)
+  const fortuneScore = getFortuneScore(primaryYongsin, targetDate)
   const scoreComment = getScoreComment(fortuneScore)
 
   const scoreColor =
@@ -489,7 +491,7 @@ export default function FortunePage() {
                   <>
                     <div style={{
                       width: 44, height: 44, margin: '0 auto 4px',
-                      background: label === '일주' ? (yongsin ? OHAENG_COLOR[yongsin] : '#007bc3') : '#f5f5f5',
+                      background: label === '일주' ? (primaryYongsin ? OHAENG_COLOR[primaryYongsin] : '#007bc3') : '#f5f5f5',
                       border: `1px solid ${label === '일주' ? 'transparent' : '#e0e0e0'}`,
                       borderRadius: 4,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -526,7 +528,7 @@ export default function FortunePage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
           <div style={{
             width: 52, height: 52, borderRadius: 4, flexShrink: 0,
-            background: yongsin ? OHAENG_COLOR[yongsin] : '#007bc3',
+            background: primaryYongsin ? OHAENG_COLOR[primaryYongsin] : '#007bc3',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             <span style={{ fontSize: 22, fontWeight: 900, color: '#fff' }}>{ilju}</span>
@@ -573,11 +575,16 @@ export default function FortunePage() {
             </div>
           ))}
         </div>
-        {yongsin && (
+        {weakArr.length > 0 && (
           <div style={{ background: '#f5f5f5', borderRadius: 4, padding: '10px 12px' }}>
             <p style={{ fontSize: 12, color: '#333', lineHeight: 1.7 }}>
-              <strong style={{ color: OHAENG_COLOR[yongsin] }}>용신: {yongsin}({OHAENG_HANJA[yongsin]})</strong>
-              {' '}— 가장 필요한 오행으로 이 기운을 보충하면 운이 상승합니다
+              {weakArr.map((w, i) => (
+                <span key={w}>
+                  <strong style={{ color: OHAENG_COLOR[w] }}>{i === 0 ? '핵심' : '보조'} 부족: {w}({OHAENG_HANJA[w]})</strong>
+                  {i < weakArr.length - 1 ? ' · ' : ''}
+                </span>
+              ))}
+              {' '}— 이 기운을 보충하면 운이 상승합니다
             </p>
           </div>
         )}
@@ -585,15 +592,15 @@ export default function FortunePage() {
 
       {/* ── 오늘의 행운 정보 ── */}
       <div style={{ padding: '0 16px', marginTop: 8 }}><AdSlot /></div>
-      {yongsin && (
+      {primaryYongsin && (
         <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', padding: '16px', marginTop: 8 }}>
           <p style={{ fontSize: 13, fontWeight: 700, color: '#333', marginBottom: 12 }}>🍀 {dateLabel} 행운</p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             {[
-              { label: '행운 번호', value: getDailyLuckyNums(yongsin, iljuChar, targetDate), icon: '🔢' },
-              { label: '행운 색상', value: getDailyLuckyColor(yongsin, iljuChar, targetDate), icon: '🎨' },
-              { label: '행운 방위', value: getDailyLuckyDir(yongsin, iljuChar, targetDate), icon: '🧭' },
-              { label: '행운 오행', value: getDailyLuckyEl(yongsin, iljuChar, targetDate), icon: '⚡' },
+              { label: '행운 번호', value: getDailyLuckyNums(primaryYongsin, iljuChar, targetDate), icon: '🔢' },
+              { label: '행운 색상', value: getDailyLuckyColor(primaryYongsin, iljuChar, targetDate), icon: '🎨' },
+              { label: '행운 방위', value: getDailyLuckyDir(primaryYongsin, iljuChar, targetDate), icon: '🧭' },
+              { label: '행운 오행', value: getDailyLuckyEl(primaryYongsin, iljuChar, targetDate), icon: '⚡' },
             ].map(({ label, value, icon }) => (
               <div key={label} style={{
                 background: '#f7f7f7', borderRadius: 4,
@@ -617,7 +624,7 @@ export default function FortunePage() {
           {dateLabel} 운세를 바탕으로 번호를 뽑아보세요!
         </p>
         <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginBottom: 14 }}>
-          용신 {yongsin} 기운의 수리로 이번 주 행운 번호를 추천드립니다
+          부족한 기운({weakArr.join('·')})의 수리로 이번 주 행운 번호를 추천드립니다
         </p>
         <Link href="/home" style={{
           display: 'inline-block', padding: '10px 28px',

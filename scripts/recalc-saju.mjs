@@ -83,15 +83,9 @@ function calculateOhaengRatio(cj) {
 
 function calculateYongsin(ohaeng) {
   const entries = Object.entries(ohaeng).sort((a, b) => a[1] - b[1])
-  const absent = entries.filter(([, v]) => v === 0)
-  if (absent.length > 0) return OHAENG_SANGSAENG[absent[0][0]]
-  const weakest  = entries[0][0]
-  const strongest = entries[entries.length - 1][0]
-  if (entries[entries.length - 1][1] >= entries[0][1] * 2.5) {
-    const SANGGEUIK = { 목:'금', 화:'수', 토:'목', 금:'화', 수:'토' }
-    return SANGGEUIK[strongest]
-  }
-  return OHAENG_SANGSAENG[weakest]
+  const avg = entries.reduce((s, [, v]) => s + v, 0) / 5
+  const weak = entries.filter(([, v]) => v < avg).slice(0, 3).map(([k]) => k)
+  return weak.length > 0 ? weak : [entries[0][0]]
 }
 
 async function main() {
@@ -108,7 +102,7 @@ async function main() {
 
       const cj = calculateSaju(sy, sm, sd, hour)
       const ohaeng = calculateOhaengRatio(cj)
-      const yongsin = calculateYongsin(ohaeng)
+      const yongsin = calculateYongsin(ohaeng).join(',')
       const ilju = `${cj.day.cheongan}${cj.day.jiji}`
 
       await prisma.sajuProfile.update({

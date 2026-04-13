@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
         )
 
         const ohaeng = calculateOhaengRatio(cheonjigan)
-        const yongsin = calculateYongsin(ohaeng)
+        const yongsin = calculateYongsin(ohaeng).join(',')
         const ilju = `${cheonjigan.day.cheongan}${cheonjigan.day.jiji}`
 
         // 양력 변환 (음력 → 양력)

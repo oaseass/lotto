@@ -81,12 +81,13 @@ function getNumOhaeng(n: number): string {
 // 번호별 오행 역할 반환
 function getNumRole(n: number, yongsin: string): { ohaeng: string; role: string; color: string } {
   const ohaeng = getNumOhaeng(n)
-  const sangsaeng = OHAENG_SANGSAENG[yongsin] || ''
+  const weakArr = yongsin.split(',').filter(Boolean)
+  const primary = weakArr[0] || ''
+  const sangsaeng = OHAENG_SANGSAENG[primary] || ''
   const color = OHAENG_COLOR[ohaeng] || '#888'
-  let role = '일진 기운'
-  if (ohaeng === yongsin) role = `용신 ${ohaeng}(${OHAENG_HANJA[ohaeng]})`
+  let role = `${ohaeng}(${OHAENG_HANJA[ohaeng]}) 기운`
+  if (weakArr.includes(ohaeng)) role = `부족 기운 ${ohaeng}(${OHAENG_HANJA[ohaeng]})`
   else if (ohaeng === sangsaeng) role = `상생 ${ohaeng}(${OHAENG_HANJA[ohaeng]})`
-  else role = `${ohaeng}(${OHAENG_HANJA[ohaeng]}) 기운`
   return { ohaeng, role, color }
 }
 
@@ -161,8 +162,8 @@ function GenerateModal({
           {finalNums && settled.every(Boolean) ? '✨ 번호 추출 완료!' : '🎴 사주 기운으로 번호 추출 중...'}
         </p>
         {yongsin && (
-          <p style={{ fontSize: 12, color: OHAENG_COLOR[yongsin] || '#888', marginBottom: 20, fontWeight: 600 }}>
-            {yongsin}({OHAENG_HANJA[yongsin]}) 용신 · {OHAENG_LUCKY[yongsin]} 끝 번호 중심
+          <p style={{ fontSize: 12, color: OHAENG_COLOR[yongsin.split(',')[0]] || '#888', marginBottom: 20, fontWeight: 600 }}>
+            부족 기운: {yongsin.split(',').map(w => `${w}(${OHAENG_HANJA[w]})`).join(' · ')} · {OHAENG_LUCKY[yongsin.split(',')[0]]} 끝 번호 중심
           </p>
         )}
 
@@ -282,6 +283,8 @@ function SajuCard({ profile, onSetup, onEdit }: {
   }
 
   const { ilju, yongsin, ohaeng } = profile
+  const weakArr = yongsin ? yongsin.split(',').filter(Boolean) : []
+  const primaryYongsin = weakArr[0] || ''
   const iljuChar = ilju?.[0] || ''
   const ohaengEntries = ohaeng ? Object.entries(ohaeng).sort((a, b) => b[1] - a[1]) : []
   const totalOhaeng = ohaengEntries.reduce((s, [, v]) => s + v, 0)
@@ -311,7 +314,7 @@ function SajuCard({ profile, onSetup, onEdit }: {
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             width: 52, height: 52, borderRadius: 4,
-            background: yongsin ? OHAENG_COLOR[yongsin] : '#007bc3', flexShrink: 0,
+            background: primaryYongsin ? OHAENG_COLOR[primaryYongsin] : '#007bc3', flexShrink: 0,
           }}>
             <span style={{ fontSize: 22, fontWeight: 900, color: '#fff', letterSpacing: '-1px' }}>{ilju}</span>
           </div>
@@ -321,15 +324,17 @@ function SajuCard({ profile, onSetup, onEdit }: {
               <span style={{ fontSize: 11, color: '#888' }}>{ILJU_DESC[iljuChar] || ''}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 12, color: '#666' }}>용신</span>
-              <span style={{
-                fontSize: 12, fontWeight: 700, color: '#fff',
-                background: yongsin ? OHAENG_COLOR[yongsin] : '#888',
-                padding: '1px 8px', borderRadius: 2,
-              }}>
-                {yongsin}{yongsin ? `(${OHAENG_HANJA[yongsin]})` : ''}
-              </span>
-              <span style={{ fontSize: 11, color: '#888' }}>행운수: {yongsin ? OHAENG_LUCKY[yongsin] : '-'}</span>
+              <span style={{ fontSize: 12, color: '#666' }}>부족 기운</span>
+              {weakArr.map(w => (
+                <span key={w} style={{
+                  fontSize: 12, fontWeight: 700, color: '#fff',
+                  background: OHAENG_COLOR[w] || '#888',
+                  padding: '1px 8px', borderRadius: 2,
+                }}>
+                  {w}({OHAENG_HANJA[w]})
+                </span>
+              ))}
+              <span style={{ fontSize: 11, color: '#888' }}>행운수: {primaryYongsin ? OHAENG_LUCKY[primaryYongsin] : '-'}</span>
             </div>
           </div>
         </div>
@@ -352,13 +357,13 @@ function SajuCard({ profile, onSetup, onEdit }: {
           </div>
         )}
 
-        {yongsin && (
+        {weakArr.length > 0 && (
           <div style={{
             background: '#f7fbff', borderLeft: '3px solid #007bc3',
             borderRadius: '0 2px 2px 0', padding: '8px 10px', marginBottom: 10,
           }}>
             <p style={{ fontSize: 12, color: '#444', lineHeight: 1.6 }}>
-              💡 {getSajuComment(yongsin)}
+              💡 {getSajuComment(primaryYongsin)}
             </p>
           </div>
         )}
@@ -417,7 +422,7 @@ function SajuCard({ profile, onSetup, onEdit }: {
           }}>
             {/* 헤더 */}
             <div style={{
-              background: yongsin ? OHAENG_COLOR[yongsin] : '#007bc3',
+              background: primaryYongsin ? OHAENG_COLOR[primaryYongsin] : '#007bc3',
               padding: '10px 14px',
             }}>
               <p style={{ fontSize: 14, fontWeight: 900, color: '#fff', marginBottom: 2 }}>
@@ -601,20 +606,14 @@ function NumberRow({
               {/* 범례 */}
               {yongsin && (
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-                  <span style={{
-                    fontSize: 10, padding: '2px 8px', borderRadius: 10,
-                    background: OHAENG_COLOR[yongsin], color: '#fff', fontWeight: 700,
-                  }}>
-                    ● 용신 {yongsin}({OHAENG_HANJA[yongsin]}) — {OHAENG_LUCKY[yongsin]} 끝
-                  </span>
-                  {OHAENG_SANGSAENG[yongsin] && (
-                    <span style={{
+                  {yongsin.split(',').filter(Boolean).map((w, idx) => (
+                    <span key={w} style={{
                       fontSize: 10, padding: '2px 8px', borderRadius: 10,
-                      background: OHAENG_COLOR[OHAENG_SANGSAENG[yongsin]], color: '#fff', fontWeight: 600,
+                      background: OHAENG_COLOR[w], color: '#fff', fontWeight: idx === 0 ? 700 : 600,
                     }}>
-                      ● 상생 {OHAENG_SANGSAENG[yongsin]}({OHAENG_HANJA[OHAENG_SANGSAENG[yongsin]]})
+                      ● {idx === 0 ? '핵심' : '보조'} 부족 기운 {w}({OHAENG_HANJA[w]}) — {OHAENG_LUCKY[w]} 끝
                     </span>
-                  )}
+                  ))}
                 </div>
               )}
             </>

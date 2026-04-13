@@ -38,10 +38,12 @@ export function GenerateResultCard({ result, onSave }: GenerateResultCardProps) 
           <p className="text-xs text-gray-400">{result.drawRound}회차 추천 번호</p>
           <p className="text-sm font-bold text-brand-gold">
             일주: {result.sajuInfo.ilju} &nbsp;|&nbsp;
-            용신:{' '}
-            <span className={OHAENG_COLOR[result.sajuInfo.yongsin] || 'text-white'}>
-              {result.sajuInfo.yongsin}
-            </span>
+            부족 기운:{' '}
+            {result.sajuInfo.yongsin.split(',').map((w, i) => (
+              <span key={w} className={OHAENG_COLOR[w] || 'text-white'}>
+                {i > 0 ? '·' : ''}{w}
+              </span>
+            ))}
           </p>
         </div>
         <div className="flex gap-2">

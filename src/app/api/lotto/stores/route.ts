@@ -39,15 +39,22 @@ function getNumOhaeng(addressNumber: number | null): string | null {
 
 function calcSajuScore(
   store: { address: string; addressNumber?: number | null; winCount1st: number },
-  yongsin: string,
+  weakOhaeng: string[],  // 부족 기운 우선순위 순 (1~3개)
   maxWin: number
 ): { score: number; regionOhaeng: string | null; numOhaeng: string | null } {
   let score = 0
   const regionOhaeng = getRegionOhaeng(store.address)
   const numOhaeng = getNumOhaeng(store.addressNumber ?? null)
 
-  if (regionOhaeng === yongsin) score += 50  // 지역 오행 일치: 50점
-  if (numOhaeng === yongsin) score += 20      // 번지 수리 일치: 20점
+  // 지역 오행: 1순위 50점, 2순위 30점, 3순위 20점
+  const regionWeights = [50, 30, 20]
+  // 번지 수리: 1순위 20점, 2순위 12점, 3순위 8점
+  const numWeights = [20, 12, 8]
+
+  weakOhaeng.forEach((oh, idx) => {
+    if (regionOhaeng === oh) score += regionWeights[idx] ?? 10
+    if (numOhaeng === oh) score += numWeights[idx] ?? 5
+  })
   if (maxWin > 0) score += Math.round((store.winCount1st / maxWin) * 30) // 당첨 실적: 30점
 
   return { score, regionOhaeng, numOhaeng }
@@ -90,10 +97,11 @@ export async function GET(req: NextRequest) {
 
     // ── 사주 전국 추천 모드 (ohaeng만, lat/lng 없음) ──────────────────
     if (ohaeng && !lat && !lng) {
+      const weakOhaeng = ohaeng.split(',').filter(Boolean) // 쉼표 구분 배열
       const candidates = await prisma.lottoStore.findMany({
         where,
         orderBy: { winCount1st: 'desc' },
-        take: 200, // 상위 200개 후보에서 사주 점수 계산
+        take: 200,
         select: {
           id: true, name: true, address: true, district: true,
           addressNumber: true, winCount1st: true,
@@ -105,7 +113,7 @@ export async function GET(req: NextRequest) {
 
       const scored = candidates
         .map(store => {
-          const { score, regionOhaeng, numOhaeng } = calcSajuScore(store, ohaeng, maxWin)
+          const { score, regionOhaeng, numOhaeng } = calcSajuScore(store, weakOhaeng, maxWin)
           return { ...store, sajuScore: score, regionOhaeng, numOhaeng }
         })
         .sort((a, b) => b.sajuScore - a.sajuScore)

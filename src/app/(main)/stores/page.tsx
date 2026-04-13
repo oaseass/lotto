@@ -60,6 +60,8 @@ export default function StoresPage() {
   })
 
   const userOhaeng = sessionOhaeng ?? profileOhaeng ?? null
+  const weakElements = userOhaeng?.split(',').filter(Boolean) ?? []
+  const primaryOhaeng = weakElements[0] ?? null
 
   const { data: dbStores, isLoading } = useQuery<TopStore[]>({
     queryKey: ['stores', selectedRegion, searchQuery],
@@ -194,7 +196,7 @@ export default function StoresPage() {
             🧭 사주 기반 판매점 추천
           </p>
           <p style={{ fontSize: 12, color: '#666', lineHeight: 1.6, marginBottom: 12 }}>
-            {userOhaeng} 오행의 지역오행 · 번지수리 · 당첨실적을 종합해<br/>전국에서 가장 궁합 좋은 판매점 3곳을 찍어드립니다
+            {weakElements.join(' · ')} 기운의 흐름을 읽어<br/>전국에서 가장 잘 맞는 판매점 3곳을 점지해 드립니다
           </p>
           <button
             onClick={() => setShowSajuModal(true)}
@@ -253,7 +255,7 @@ export default function StoresPage() {
                   {store.isLucky && (
                     <span style={{
                       fontSize: 10, fontWeight: 600, color: '#fff',
-                      background: OHAENG_COLOR[userOhaeng!] || '#666',
+                      background: OHAENG_COLOR[primaryOhaeng!] || '#666',
                       padding: '1px 6px', borderRadius: 2,
                     }}>
                       길한 방위
