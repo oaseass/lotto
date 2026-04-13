@@ -92,10 +92,14 @@ export default function HistoryPage() {
 }
 
 // ── 필터 바 ──────────────────────────────────────────────
+type QuickPeriod = null | '1m' | '3m' | '6m' | 'this_year'
+
 function FilterBar({
   years, months, selectedYear, selectedMonth,
   onYearChange, onMonthChange,
+  quickPeriod, onQuickPeriod,
   typeOptions, selectedType, onTypeChange,
+  resultOptions, selectedResult, onResultChange,
   resultCount,
 }: {
   years: number[]
@@ -104,30 +108,52 @@ function FilterBar({
   selectedMonth: number | null
   onYearChange: (y: number | null) => void
   onMonthChange: (m: number | null) => void
+  quickPeriod: QuickPeriod
+  onQuickPeriod: (p: QuickPeriod) => void
   typeOptions?: { label: string; value: string }[]
   selectedType?: string
   onTypeChange?: (t: string) => void
+  resultOptions?: { label: string; value: string }[]
+  selectedResult?: string
+  onResultChange?: (v: string) => void
   resultCount: number
 }) {
+  const QUICK = [
+    { label: '이번달', value: '1m' as QuickPeriod },
+    { label: '최근3달', value: '3m' as QuickPeriod },
+    { label: '최근6달', value: '6m' as QuickPeriod },
+    { label: '올해', value: 'this_year' as QuickPeriod },
+  ]
+
   return (
     <div style={{ background: '#fff', borderBottom: '1px solid #f0f0f0', padding: '10px 16px' }}>
-      {/* 년도 */}
+      {/* 빠른 기간 */}
       <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 6, scrollbarWidth: 'none' }}>
-        <Chip label="전체" active={selectedYear === null}
-          onClick={() => { onYearChange(null); onMonthChange(null) }} />
-        {years.map(y => (
-          <Chip key={y} label={`${y}년`} active={selectedYear === y}
-            onClick={() => { onYearChange(y); onMonthChange(null) }} />
+        <Chip label="전체" active={quickPeriod === null && selectedYear === null}
+          onClick={() => { onQuickPeriod(null); onYearChange(null); onMonthChange(null) }} />
+        {QUICK.map(q => (
+          <Chip key={q.value!} label={q.label} active={quickPeriod === q.value}
+            onClick={() => { onQuickPeriod(q.value); onYearChange(null); onMonthChange(null) }} />
         ))}
       </div>
 
-      {/* 월 (년도 선택 시) */}
-      {selectedYear !== null && months.length > 0 && (
+      {/* 년도 (빠른기간 미선택 시) */}
+      {quickPeriod === null && years.length > 0 && (
         <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 6, marginTop: 6, scrollbarWidth: 'none' }}>
-          <Chip label="전월" active={selectedMonth === null} onClick={() => onMonthChange(null)} />
+          {years.map(y => (
+            <Chip key={y} label={`${y}년`} active={selectedYear === y}
+              onClick={() => { onYearChange(selectedYear === y ? null : y); onMonthChange(null) }} />
+          ))}
+        </div>
+      )}
+
+      {/* 월 (년도 선택 시) */}
+      {quickPeriod === null && selectedYear !== null && months.length > 0 && (
+        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 6, marginTop: 6, scrollbarWidth: 'none' }}>
+          <Chip label="전체월" active={selectedMonth === null} onClick={() => onMonthChange(null)} />
           {months.map(m => (
             <Chip key={m} label={`${m}월`} active={selectedMonth === m}
-              onClick={() => onMonthChange(m)} />
+              onClick={() => onMonthChange(selectedMonth === m ? null : m)} />
           ))}
         </div>
       )}
@@ -138,6 +164,16 @@ function FilterBar({
           {typeOptions.map(opt => (
             <Chip key={opt.value} label={opt.label} active={selectedType === opt.value}
               onClick={() => onTypeChange(opt.value)} />
+          ))}
+        </div>
+      )}
+
+      {/* 당첨여부 필터 */}
+      {resultOptions && onResultChange && (
+        <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+          {resultOptions.map(opt => (
+            <Chip key={opt.value} label={opt.label} active={selectedResult === opt.value}
+              onClick={() => onResultChange(opt.value)} />
           ))}
         </div>
       )}
@@ -171,6 +207,7 @@ function SavedNumbers() {
   const [filterYear, setFilterYear] = useState<number | null>(null)
   const [filterMonth, setFilterMonth] = useState<number | null>(null)
   const [filterType, setFilterType] = useState<string>('all')
+  const [quickPeriod, setQuickPeriod] = useState<QuickPeriod>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['savedNumbers'],
@@ -184,6 +221,10 @@ function SavedNumbers() {
   if (!data?.length) return (
     <EmptyState message="저장된 번호가 없어요" sub="번호 생성 탭에서 번호를 뽑아보세요" />
   )
+
+  const now = new Date()
+  const cutoff = (months: number) => new Date(now.getTime() - months * 30 * 24 * 60 * 60 * 1000)
+  const thisYearStart = new Date(now.getFullYear(), 0, 1)
 
   // 사용 가능한 년도/월 추출
   const years: number[] = Array.from(
@@ -203,8 +244,15 @@ function SavedNumbers() {
   // 필터 적용
   const filtered = data.filter((item: any) => {
     const d = new Date(item.createdAt)
-    if (filterYear && d.getFullYear() !== filterYear) return false
-    if (filterMonth && d.getMonth() + 1 !== filterMonth) return false
+    // 빠른 기간
+    if (quickPeriod === '1m' && d < cutoff(1)) return false
+    if (quickPeriod === '3m' && d < cutoff(3)) return false
+    if (quickPeriod === '6m' && d < cutoff(6)) return false
+    if (quickPeriod === 'this_year' && d < thisYearStart) return false
+    // 년/월
+    if (!quickPeriod && filterYear && d.getFullYear() !== filterYear) return false
+    if (!quickPeriod && filterMonth && d.getMonth() + 1 !== filterMonth) return false
+    // 타입
     if (filterType === 'auto' && item.isManual) return false
     if (filterType === 'manual' && !item.isManual) return false
     return true
@@ -216,6 +264,7 @@ function SavedNumbers() {
         years={years} months={months}
         selectedYear={filterYear} selectedMonth={filterMonth}
         onYearChange={setFilterYear} onMonthChange={setFilterMonth}
+        quickPeriod={quickPeriod} onQuickPeriod={setQuickPeriod}
         typeOptions={[
           { label: '전체', value: 'all' },
           { label: '추천', value: 'auto' },
@@ -400,6 +449,8 @@ function NumberStats() {
 function ScanHistory() {
   const [filterYear, setFilterYear] = useState<number | null>(null)
   const [filterMonth, setFilterMonth] = useState<number | null>(null)
+  const [quickPeriod, setQuickPeriod] = useState<QuickPeriod>(null)
+  const [filterResult, setFilterResult] = useState<string>('all')
 
   const { data, isLoading } = useQuery({
     queryKey: ['scanHistory'],
@@ -413,6 +464,10 @@ function ScanHistory() {
   if (!data?.length) return (
     <EmptyState message="스캔 이력이 없어요" sub="QR 당첨 확인 탭에서 복권을 스캔해보세요" />
   )
+
+  const now = new Date()
+  const cutoff = (months: number) => new Date(now.getTime() - months * 30 * 24 * 60 * 60 * 1000)
+  const thisYearStart = new Date(now.getFullYear(), 0, 1)
 
   // 사용 가능한 년도/월 추출
   const years: number[] = Array.from(
@@ -432,8 +487,17 @@ function ScanHistory() {
   // 필터 적용
   const filtered = data.filter((scan: any) => {
     const d = new Date(scan.scannedAt)
-    if (filterYear && d.getFullYear() !== filterYear) return false
-    if (filterMonth && d.getMonth() + 1 !== filterMonth) return false
+    // 빠른 기간
+    if (quickPeriod === '1m' && d < cutoff(1)) return false
+    if (quickPeriod === '3m' && d < cutoff(3)) return false
+    if (quickPeriod === '6m' && d < cutoff(6)) return false
+    if (quickPeriod === 'this_year' && d < thisYearStart) return false
+    // 년/월
+    if (!quickPeriod && filterYear && d.getFullYear() !== filterYear) return false
+    if (!quickPeriod && filterMonth && d.getMonth() + 1 !== filterMonth) return false
+    // 당첨여부
+    if (filterResult === 'win' && Number(scan.totalPrize) === 0) return false
+    if (filterResult === 'lose' && Number(scan.totalPrize) > 0) return false
     return true
   })
 
@@ -446,6 +510,14 @@ function ScanHistory() {
         years={years} months={months}
         selectedYear={filterYear} selectedMonth={filterMonth}
         onYearChange={setFilterYear} onMonthChange={setFilterMonth}
+        quickPeriod={quickPeriod} onQuickPeriod={setQuickPeriod}
+        resultOptions={[
+          { label: '전체', value: 'all' },
+          { label: '당첨', value: 'win' },
+          { label: '낙첨', value: 'lose' },
+        ]}
+        selectedResult={filterResult}
+        onResultChange={setFilterResult}
         resultCount={filtered.length}
       />
 
