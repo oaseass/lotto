@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
 import { AdSlot } from '@/components/ui/AdSlot'
+import SajuStoreModal from '@/components/lotto/SajuStoreModal'
 
 const REGIONS = [
   '서울', '경기', '인천', '부산', '대구', '광주', '대전', '울산', '세종',
@@ -37,8 +38,9 @@ interface TopStore {
 
 export default function StoresPage() {
   const { data: session } = useSession()
+  const isAdFree = session?.user?.isAdFree ?? false
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
-  const [showSajuRecommend, setShowSajuRecommend] = useState(false)
+  const [showSajuModal, setShowSajuModal] = useState(false)
   const [gpsLocation, setGpsLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [userOhaeng, setUserOhaeng] = useState<string | null>(null)
   const [permission, setPermission] = useState<'pending' | 'granted' | 'denied'>('pending')
@@ -56,35 +58,29 @@ export default function StoresPage() {
   }, [session, userOhaeng])
 
   // GPS 위치 요청
-  const requestLocation = async () => {
-    if (!navigator.geolocation) {
-      setPermission('denied')
-      return
-    }
+  const requestGpsAndOpenModal = () => {
+    if (!navigator.geolocation) { setPermission('denied'); return }
     navigator.geolocation.getCurrentPosition(
       pos => {
         setGpsLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude })
         setPermission('granted')
+        setShowSajuModal(true)
       },
       () => setPermission('denied'),
     )
   }
 
   const { data: dbStores, isLoading } = useQuery<TopStore[]>({
-    queryKey: ['stores', selectedRegion, gpsLocation, userOhaeng, showSajuRecommend, searchQuery],
+    queryKey: ['stores', selectedRegion, searchQuery],
     queryFn: async () => {
       let url = '/api/lotto/stores'
-
-      if (showSajuRecommend && gpsLocation && userOhaeng) {
-        url += `?lat=${gpsLocation.lat}&lng=${gpsLocation.lng}&ohaeng=${userOhaeng}&radius=2&top=10`
-      } else if (searchQuery) {
+      if (searchQuery) {
         url += `?q=${encodeURIComponent(searchQuery)}&top=30`
       } else if (selectedRegion) {
         url += `?region=${encodeURIComponent(selectedRegion)}`
       } else {
         url += '?top=20'
       }
-
       const res = await fetch(url)
       if (!res.ok) return []
       return res.json()
@@ -116,7 +112,6 @@ export default function StoresPage() {
             e.preventDefault()
             setSearchQuery(searchInput)
             setSelectedRegion(null)
-            setShowSajuRecommend(false)
           }}
           style={{ display: 'flex', gap: 8 }}
         >
@@ -165,14 +160,13 @@ export default function StoresPage() {
           <button
             onClick={() => {
               setSelectedRegion(null)
-              setShowSajuRecommend(false)
               setSearchInput('')
               setSearchQuery('')
             }}
             style={{
               padding: '5px 12px', borderRadius: 14,
-              background: !selectedRegion && !showSajuRecommend ? '#007bc3' : '#f5f5f5',
-              color: !selectedRegion && !showSajuRecommend ? '#fff' : '#555',
+              background: !selectedRegion && !searchQuery ? '#007bc3' : '#f5f5f5',
+              color: !selectedRegion && !searchQuery ? '#fff' : '#555',
               border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer',
             }}
           >
@@ -183,7 +177,6 @@ export default function StoresPage() {
               key={r}
               onClick={() => {
                 setSelectedRegion(r === selectedRegion ? null : r)
-                setShowSajuRecommend(false)
                 setSearchInput('')
                 setSearchQuery('')
               }}
@@ -206,45 +199,32 @@ export default function StoresPage() {
           background: '#f5f0ff', border: '1px solid #e8d5f2',
           borderRadius: 8, padding: '14px 16px', marginBottom: 8, marginLeft: 8, marginRight: 8,
         }}>
-          {!showSajuRecommend ? (
-            <>
-              <p style={{ fontSize: 13, fontWeight: 700, color: '#6d28d9', marginBottom: 10 }}>
-                🧭 사주 기반 판매점 추천
-              </p>
-              <p style={{ fontSize: 12, color: '#666', lineHeight: 1.6, marginBottom: 12 }}>
-                {userOhaeng} 오행의 길한 방위에 있는 판매점을 추천합니다<br/>
-                저마다의 용신 오행 방위에서 운이 더 잘 풀릴 수 있어요
-              </p>
-              <button
-                onClick={() => {
-                  if (permission === 'pending') requestLocation()
-                  else if (permission === 'granted') setShowSajuRecommend(true)
-                }}
-                style={{
-                  width: '100%', height: 36,
-                  background: permission === 'denied' ? '#ddd' : '#6d28d9',
-                  color: '#fff', fontSize: 12, fontWeight: 600,
-                  border: 'none', borderRadius: 4, cursor: 'pointer',
-                }}
-              >
-                {permission === 'pending' ? '위치정보 허용 후 추천받기' :
-                 permission === 'granted' ? (showSajuRecommend ? '일반 보기로 돌아가기' : '추천 판매점 보기') :
-                 '위치정보 권한 거부됨'}
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => setShowSajuRecommend(false)}
-              style={{
-                width: '100%', height: 36,
-                background: '#f5f5f5', color: '#333',
-                fontSize: 12, fontWeight: 600,
-                border: '1px solid #ddd', borderRadius: 4, cursor: 'pointer',
-              }}
-            >
-              ← 일반 보기로 돌아가기
-            </button>
-          )}
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#6d28d9', marginBottom: 6 }}>
+            🧭 사주 기반 판매점 추천
+          </p>
+          <p style={{ fontSize: 12, color: '#666', lineHeight: 1.6, marginBottom: 12 }}>
+            {userOhaeng} 오행의 길한 방위에 있는 판매점 3곳을 찍어드립니다
+          </p>
+          <button
+            onClick={() => {
+              if (permission === 'granted') {
+                setShowSajuModal(true)
+              } else if (permission === 'pending') {
+                requestGpsAndOpenModal()
+              }
+            }}
+            disabled={permission === 'denied'}
+            style={{
+              width: '100%', height: 40,
+              background: permission === 'denied' ? '#ddd' : '#6d28d9',
+              color: '#fff', fontSize: 12, fontWeight: 700,
+              border: 'none', borderRadius: 6, cursor: permission === 'denied' ? 'default' : 'pointer',
+            }}
+          >
+            {permission === 'pending' ? '📍 위치 허용 후 추천받기 (광고 시청)' :
+             permission === 'granted' ? '🎁 광고 보고 추천 판매점 3곳 받기' :
+             '위치정보 권한 거부됨'}
+          </button>
         </div>
       )}
 
@@ -255,8 +235,8 @@ export default function StoresPage() {
           padding: '10px 16px 8px', borderBottom: '1px solid #f0f0f0',
         }}>
           <p style={{ fontSize: 13, fontWeight: 700, color: '#333' }}>
-            🏆 {showSajuRecommend ? '사주 궁합 판매점' : searchQuery ? '검색 결과' : '1등 다수 배출 판매점'}
-            {selectedRegion && !showSajuRecommend && !searchQuery && <span style={{ color: '#007bc3', marginLeft: 4 }}>({selectedRegion})</span>}
+            🏆 {searchQuery ? '검색 결과' : '1등 다수 배출 판매점'}
+            {selectedRegion && !searchQuery && <span style={{ color: '#007bc3', marginLeft: 4 }}>({selectedRegion})</span>}
             {searchQuery && <span style={{ color: '#007bc3', marginLeft: 4 }}>"{searchQuery}"</span>}
           </p>
           {isLoading && <span style={{ fontSize: 11, color: '#888' }}>로딩 중...</span>}
@@ -322,54 +302,8 @@ export default function StoresPage() {
         )}
       </div>
 
-      {/* ── 사주 기반 판매점 추천 ── */}
+      {/* ── 광고 ── */}
       <div style={{ padding: '0 16px', marginBottom: 8 }}><AdSlot /></div>
-      {session && userOhaeng && (
-        <div style={{
-          background: '#f5f0ff', border: '1px solid #e8d5f2',
-          borderRadius: 8, padding: '14px 16px', marginBottom: 8, marginLeft: 8, marginRight: 8,
-        }}>
-          {!showSajuRecommend ? (
-            <>
-              <p style={{ fontSize: 13, fontWeight: 700, color: '#6d28d9', marginBottom: 10 }}>
-                🧭 사주 기반 판매점 추천
-              </p>
-              <p style={{ fontSize: 12, color: '#666', lineHeight: 1.6, marginBottom: 12 }}>
-                {userOhaeng} 오행의 길한 방위에 있는 판매점을 추천합니다<br/>
-                저마다의 용신 오행 방위에서 운이 더 잘 풀릴 수 있어요
-              </p>
-              <button
-                onClick={() => {
-                  if (permission === 'pending') requestLocation()
-                  else if (permission === 'granted') setShowSajuRecommend(true)
-                }}
-                style={{
-                  width: '100%', height: 36,
-                  background: permission === 'denied' ? '#ddd' : '#6d28d9',
-                  color: '#fff', fontSize: 12, fontWeight: 600,
-                  border: 'none', borderRadius: 4, cursor: 'pointer',
-                }}
-              >
-                {permission === 'pending' ? '위치정보 허용 후 추천받기' :
-                 permission === 'granted' ? (showSajuRecommend ? '일반 보기로 돌아가기' : '추천 판매점 보기') :
-                 '위치정보 권한 거부됨'}
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => setShowSajuRecommend(false)}
-              style={{
-                width: '100%', height: 36,
-                background: '#f5f5f5', color: '#333',
-                fontSize: 12, fontWeight: 600,
-                border: '1px solid #ddd', borderRadius: 4, cursor: 'pointer',
-              }}
-            >
-              ← 일반 보기로 돌아가기
-            </button>
-          )}
-        </div>
-      )}
 
       {/* ── 당첨번호 회차별 판매점 ── */}
       <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', padding: '14px 16px', marginBottom: 8 }}>
@@ -404,6 +338,16 @@ export default function StoresPage() {
         </div>
       </div>
       <div style={{ padding: '0 16px', marginTop: 8, marginBottom: 16 }}><AdSlot /></div>
+
+      {/* ── 사주 판매점 추천 모달 ── */}
+      {showSajuModal && gpsLocation && userOhaeng && (
+        <SajuStoreModal
+          onClose={() => setShowSajuModal(false)}
+          gpsLocation={gpsLocation}
+          userOhaeng={userOhaeng}
+          isAdFree={isAdFree}
+        />
+      )}
     </div>
   )
 }
