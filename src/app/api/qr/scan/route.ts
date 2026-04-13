@@ -80,9 +80,14 @@ export async function GET(req: NextRequest) {
 
     const scans = await prisma.qrScan.findMany({
       where: { userId: session.user.id },
-      include: { lottoDraw: true },
       orderBy: { scannedAt: 'desc' },
       take: 50,
+      select: {
+        id: true,
+        round: true,
+        totalPrize: true,
+        scannedAt: true,
+      },
     })
 
     return NextResponse.json(scans)

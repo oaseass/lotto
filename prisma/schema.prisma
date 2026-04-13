@@ -103,6 +103,8 @@ model LottoNumber {
 
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   lottoDraw LottoDraw? @relation(fields: [drawRound], references: [round])
+
+  @@index([userId, createdAt(sort: Desc)])
 }
 
 // 로또 당첨 번호 (매주 업데이트)
@@ -141,6 +143,8 @@ model QrScan {
 
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   lottoDraw LottoDraw @relation(fields: [round], references: [round])
+
+  @@index([userId, scannedAt(sort: Desc)])
 }
 
 // 광고 제거 결제
@@ -182,4 +186,6 @@ model LottoStore {
   addressNumber Int?     // 번지 수리 계산용
   winCount1st   Int      @default(0) // 1등 배출 횟수
   lastUpdated   DateTime @default(now())
+
+  @@index([winCount1st(sort: Desc)])
 }

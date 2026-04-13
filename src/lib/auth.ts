@@ -52,18 +52,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     newUser: '/onboarding',
   },
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) token.id = user.id
+    async jwt({ token, user, trigger }) {
+      if (user) {
+        token.id = user.id
+        // 로그인 시 1회만 DB 조회 → JWT에 저장
+        const dbUser = await prisma.user.findUnique({
+          where: { id: user.id as string },
+          select: { isAdFree: true },
+        })
+        token.isAdFree = dbUser?.isAdFree ?? false
+      }
+      // 결제 완료 후 session.update() 호출 시에만 재조회
+      if (trigger === 'update' && token.id) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { isAdFree: true },
+        })
+        token.isAdFree = dbUser?.isAdFree ?? false
+      }
       return token
     },
     async session({ session, token }) {
       if (token.id) {
         session.user.id = token.id as string
-        const dbUser = await prisma.user.findUnique({
-          where: { id: token.id as string },
-          select: { isAdFree: true },
-        })
-        session.user.isAdFree = dbUser?.isAdFree ?? false
+        session.user.isAdFree = (token.isAdFree as boolean) ?? false
       }
       return session
     },
