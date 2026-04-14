@@ -94,31 +94,35 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
     }
 
     scanCountRef.current++
-    if (scanCountRef.current % 5 === 0) {
-      setDebugInfo(prev => prev.replace(/\s스캔\d+/g, '') + ` 스캔${scanCountRef.current}`)
+    if (scanCountRef.current % 10 === 0) {
+      const mode = detectorRef.current ? 'BD' : 'jsQR'
+      setDebugInfo(`${mode} 스캔${scanCountRef.current} ${video.videoWidth}x${video.videoHeight}`)
     }
 
     try {
       if (detectorRef.current) {
-        // canvas → ImageBitmap 방식 (가장 호환성 높음)
-        const canvas = canvasRef.current!
-        canvas.width = video.videoWidth
-        canvas.height = video.videoHeight
-        canvas.getContext('2d')!.drawImage(video, 0, 0)
-        const bitmap = await createImageBitmap(canvas)
         let results: Array<{ rawValue: string }> = []
-        try {
-          results = await detectorRef.current.detect(bitmap)
-        } catch (e) {
-          setDebugInfo(prev => `BD오류:${String(e).slice(0, 30)}`)
-        } finally {
-          bitmap.close()
+
+        // 1차: 비디오 직접 전달
+        try { results = await detectorRef.current.detect(video) } catch { /* ignore */ }
+
+        // 2차: canvas 직접 전달
+        if (!results.length) {
+          const canvas = canvasRef.current!
+          canvas.width = video.videoWidth
+          canvas.height = video.videoHeight
+          canvas.getContext('2d')!.drawImage(video, 0, 0)
+          try { results = await detectorRef.current.detect(canvas) } catch { /* ignore */ }
         }
 
         if (results?.[0]?.rawValue) {
-          stopCamera()
-          onScan(results[0].rawValue)
-          return
+          stopCamera(); onScan(results[0].rawValue); return
+        }
+
+        // BD가 50회 이상 빈 결과면 jsQR로 전환
+        if (scanCountRef.current > 50) {
+          detectorRef.current = null
+          setDebugInfo('BD실패→jsQR전환')
         }
       } else {
         // jsQR 폴백
@@ -130,11 +134,11 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
         const { default: jsQR } = await import('jsqr')
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
         const code = jsQR(imageData.data, canvas.width, canvas.height, {
-          inversionAttempts: 'dontInvert',
+          inversionAttempts: 'attemptBoth',
         })
         if (code?.data) { stopCamera(); onScan(code.data); return }
       }
-    } catch {}
+    } catch { /* ignore */ }
 
     scheduleScan()
   }
