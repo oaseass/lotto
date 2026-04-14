@@ -134,7 +134,8 @@ export function buildReasonPrompt(
 
 /**
  * QR 코드에서 로또 번호 파싱
- * 동행복권 QR 형식: https://m.dhlottery.co.kr/qr.do?method=winQr&v=1162q031522273241q...
+ * 동행복권 QR 형식 A (q 구분): v=1162q031522273241q050912132342q...
+ * 동행복권 QR 형식 B (연속): v=0868q{게임1 12자}{게임2 12자}...{인증코드}
  */
 export function parseQrCode(qrData: string): {
   round: number
@@ -145,23 +146,44 @@ export function parseQrCode(qrData: string): {
     const v = url.searchParams.get('v')
     if (!v) return null
 
-    // v 파라미터 파싱: 회차q번호6개q번호6개...
     const parts = v.split('q')
     const round = parseInt(parts[0])
+    if (isNaN(round)) return null
+
     const sets: number[][] = []
 
+    // 형식 A: 각 게임이 q로 분리된 경우
     for (let i = 1; i < parts.length; i++) {
       const part = parts[i]
       if (part.length === 12) {
-        // 6개 번호 (각 2자리)
         const nums: number[] = []
         for (let j = 0; j < 12; j += 2) {
           nums.push(parseInt(part.substring(j, j + 2)))
         }
-        sets.push(nums)
+        if (nums.every(n => n >= 1 && n <= 45)) sets.push(nums)
       }
     }
 
+    // 형식 B: 게임 번호가 q 없이 연속으로 붙어있는 경우 (실제 동행복권 QR)
+    // v=0868q{12자×게임수}{인증코드6자}
+    if (sets.length === 0 && parts.length >= 2) {
+      const raw = parts.slice(1).join('')
+      let pos = 0
+      while (pos + 12 <= raw.length) {
+        const chunk = raw.substring(pos, pos + 12)
+        const nums: number[] = []
+        let valid = true
+        for (let j = 0; j < 12; j += 2) {
+          const n = parseInt(chunk.substring(j, j + 2))
+          if (isNaN(n) || n < 1 || n > 45) { valid = false; break }
+          nums.push(n)
+        }
+        if (valid) { sets.push(nums); pos += 12 }
+        else break
+      }
+    }
+
+    if (sets.length === 0) return null
     return { round, sets }
   } catch {
     return null
