@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
+    const vParam = new URL(qrData).searchParams.get('v') ?? ''
     return NextResponse.json({
       round,
       drawDate: draw.drawDate,
@@ -63,6 +64,7 @@ export async function POST(req: NextRequest) {
       bonus: draw.bonus,
       sets: setsWithNumbers,
       totalPrize,
+      _dbg: { setsCount: sets.length, vLen: vParam.length, v: vParam },
     })
   } catch (error) {
     console.error('QR 스캔 오류:', error)

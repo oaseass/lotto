@@ -141,6 +141,12 @@ export default function CheckPage() {
             </div>
 
             <div style={{ padding: '16px' }}>
+              {/* 파싱 디버그 */}
+              {(result as any)._dbg && (
+                <p style={{ fontSize: 10, color: '#aaa', marginBottom: 8 }}>
+                  sets:{(result as any)._dbg.setsCount} vLen:{(result as any)._dbg.vLen}
+                </p>
+              )}
               {/* 당첨번호 */}
               <div style={{
                 background: '#f7fbff', padding: '14px 16px',
