@@ -53,7 +53,7 @@ export function generateLottoNumbers(
 }
 
 /**
- * 시드 생성 (사주 기반 + 호출 시각으로 매번 다른 번호)
+ * 시드 생성 (사주+날짜 기반, 결정론적 — 같은 사주+날짜 = 항상 같은 번호)
  */
 function createSeed(cheonjigan: Cheonjigan, targetDate: Date): number {
   const dateNum = targetDate.getFullYear() * 10000 +
@@ -63,10 +63,7 @@ function createSeed(cheonjigan: Cheonjigan, targetDate: Date): number {
   const ilju = cheonjigan.day
   const ilja = ilju.cheongan.charCodeAt(0) + ilju.jiji.charCodeAt(0)
 
-  // 밀리초 단위 시각을 더해 매 호출마다 다른 시드
-  const timeSeed = Date.now() % 99991
-
-  return (dateNum + ilja + timeSeed) % 99991
+  return (dateNum + ilja) % 99991
 }
 
 /**

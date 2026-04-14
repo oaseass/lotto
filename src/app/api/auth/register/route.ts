@@ -8,6 +8,20 @@ import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { calculateSaju, calculateOhaengRatio, calculateYongsin } from '@/lib/saju/calculator'
 
+let KoreanLunarCalendar: any
+try { KoreanLunarCalendar = require('korean-lunar-calendar') } catch {}
+
+function lunarToSolar(year: number, month: number, day: number, isLeap: boolean) {
+  if (!KoreanLunarCalendar) return null
+  try {
+    const cal = new KoreanLunarCalendar()
+    cal.setLunarDate(year, month, day, isLeap)
+    const solar = cal.getSolarCalendar()
+    if (!solar?.year) return null
+    return solar as { year: number; month: number; day: number }
+  } catch { return null }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { nickname, email, password, gender, saju } = await req.json()
@@ -38,22 +52,24 @@ export async function POST(req: NextRequest) {
     // 사주 정보가 있다면 저장
     if (saju?.birthYear && saju?.birthMonth && saju?.birthDay) {
       try {
-        // 사주 계산
-        const cheonjigan = calculateSaju(
-          saju.birthYear,
-          saju.birthMonth,
-          saju.birthDay,
-          saju.birthHour || null,
-        )
+        // 1) 음력이면 먼저 양력으로 변환
+        let solarYear = saju.birthYear
+        let solarMonth = saju.birthMonth
+        let solarDay = saju.birthDay
 
+        if (saju.isLunar) {
+          const converted = lunarToSolar(saju.birthYear, saju.birthMonth, saju.birthDay, saju.isLeapMonth ?? false)
+          if (!converted) throw new Error('음력 변환 실패')
+          solarYear = converted.year
+          solarMonth = converted.month
+          solarDay = converted.day
+        }
+
+        // 2) 양력 기준으로 사주 계산
+        const cheonjigan = calculateSaju(solarYear, solarMonth, solarDay, saju.birthHour || null)
         const ohaeng = calculateOhaengRatio(cheonjigan)
         const yongsin = calculateYongsin(ohaeng).join(',')
         const ilju = `${cheonjigan.day.cheongan}${cheonjigan.day.jiji}`
-
-        // 양력 변환 (음력 → 양력)
-        const solarDate = saju.isLunar
-          ? lunarToSolar(saju.birthYear, saju.birthMonth, saju.birthDay)
-          : { year: saju.birthYear, month: saju.birthMonth, day: saju.birthDay }
 
         await prisma.sajuProfile.create({
           data: {
@@ -63,9 +79,10 @@ export async function POST(req: NextRequest) {
             birthDay: saju.birthDay,
             birthHour: saju.birthHour || null,
             isLunar: saju.isLunar || false,
-            solarYear: solarDate.year,
-            solarMonth: solarDate.month,
-            solarDay: solarDate.day,
+            isLeapMonth: saju.isLeapMonth ?? false,
+            solarYear,
+            solarMonth,
+            solarDay,
             cheonjigan: cheonjigan as any,
             ohaeng: ohaeng as any,
             ilju,
@@ -87,22 +104,4 @@ export async function POST(req: NextRequest) {
     console.error('회원가입 오류:', error)
     return NextResponse.json({ error: '회원가입에 실패했습니다' }, { status: 500 })
   }
-}
-
-// 간단한 음력→ 양력 변환 (근사치)
-function lunarToSolar(year: number, month: number, day: number) {
-  // 실제로는 정확한 변환 테이블이 필요하지만, 여기서는 간단한 근사치 사용
-  // 대부분의 경우 1-2개월 차이
-  let solarYear = year
-  let solarMonth = month + 1
-  let solarDay = day
-
-  if (solarMonth > 12) {
-    solarMonth -= 12
-    solarYear += 1
-  }
-
-  if (solarDay > 28) solarDay = Math.min(solarDay, 28)
-
-  return { year: solarYear, month: solarMonth, day: solarDay }
 }

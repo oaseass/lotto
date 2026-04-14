@@ -33,7 +33,7 @@ export default function OnboardingPage() {
       const y = parseInt(year), m = parseInt(month), d = parseInt(day)
       if (y < 1900 || y > 2010) { setError('올바른 연도를 입력해주세요 (1900~2010)'); return }
       if (m < 1 || m > 12) { setError('올바른 월을 입력해주세요 (1~12)'); return }
-      if (d < 1 || d > 30) { setError('올바른 일을 입력해주세요 (1~30)'); return }
+      if (d < 1 || d > 31) { setError('올바른 일을 입력해주세요 (1~31)'); return }
     }
     setStep(s => s + 1)
   }

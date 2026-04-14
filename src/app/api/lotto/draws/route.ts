@@ -15,7 +15,7 @@ function serializeDraw(draw: any) {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const round = searchParams.get('round')
-  const limit = parseInt(searchParams.get('limit') || '10')
+  const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 100)
 
   try {
     if (round) {

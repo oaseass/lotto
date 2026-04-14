@@ -102,14 +102,13 @@ function getDailyFortune(iljuChar: string, date: Date): string {
 }
 
 export async function GET(req: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET
+  if (!cronSecret) return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
+
   const authHeader = req.headers.get('authorization')
   const secret = req.nextUrl.searchParams.get('secret')
-  const cronSecret = process.env.CRON_SECRET
-
-  if (cronSecret) {
-    const valid = authHeader === `Bearer ${cronSecret}` || secret === cronSecret
-    if (!valid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const valid = authHeader === `Bearer ${cronSecret}` || secret === cronSecret
+  if (!valid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const log: string[] = [`[${new Date().toISOString()}] 일일 운세 푸시 시작`]
 

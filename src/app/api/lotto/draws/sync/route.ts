@@ -3,6 +3,9 @@
 // POST /api/lotto/draws/sync
 // ================================
 
+export const dynamic = 'force-dynamic'
+export const maxDuration = 60
+
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { fetchLottoDraw, parseDraw, estimateCurrentRound } from '@/lib/lotto/dhlottery'
@@ -27,9 +30,15 @@ export async function POST(req: NextRequest) {
     const endRound = body.to ?? currentEstimated
 
     let synced = 0
+    // 범위 내 기존 회차를 한 번에 조회 (N+1 방지)
+    const existingRounds = await prisma.lottoDraw.findMany({
+      where: { round: { gte: startRound, lte: endRound } },
+      select: { round: true },
+    })
+    const existingSet = new Set(existingRounds.map(r => r.round))
+
     for (let round = startRound; round <= endRound; round++) {
-      const existing = await prisma.lottoDraw.findUnique({ where: { round } })
-      if (existing) continue
+      if (existingSet.has(round)) continue
 
       const data = await fetchLottoDraw(round)
       if (!data) continue
