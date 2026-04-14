@@ -5,8 +5,8 @@
 import { NextResponse } from 'next/server'
 
 export async function GET() {
-  const packageName = process.env.ANDROID_PACKAGE_NAME ?? 'com.sajulotto.app'
-  const fingerprint = process.env.ANDROID_SHA256_FINGERPRINT ?? ''
+  const packageName = (process.env.ANDROID_PACKAGE_NAME ?? 'com.sajulotto1.app').trim()
+  const fingerprint = (process.env.ANDROID_SHA256_FINGERPRINT ?? '').trim()
 
   const assetLinks = [
     {
