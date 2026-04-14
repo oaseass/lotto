@@ -60,24 +60,42 @@ export async function GET() {
     .sort((a, b) => b.count - a.count)
     .slice(0, 10)
 
-  // 3. 날짜 기반 매칭: 번호 생성일 이후 첫 번째 추첨 회차와 대조
-  const minDate = myNumbers.reduce(
-    (min, n) => (n.createdAt < min ? n.createdAt : min),
-    myNumbers[myNumbers.length - 1].createdAt
-  )
+  // 3. 날짜/회차 기반 매칭: drawRound가 있으면 직접 사용, 없으면 생성일 이후 첫 추첨
+  const directRounds = myNumbers
+    .filter(n => n.drawRound !== null)
+    .map(n => n.drawRound as number)
+
+  const hasDateEntries = myNumbers.some(n => n.drawRound === null)
+
+  const minDate = hasDateEntries
+    ? myNumbers.reduce(
+        (min, n) => (n.createdAt < min ? n.createdAt : min),
+        myNumbers[myNumbers.length - 1].createdAt
+      )
+    : null
+
+  const drawsWhere =
+    directRounds.length > 0 && hasDateEntries
+      ? { OR: [{ round: { in: directRounds } }, { drawDate: { gte: minDate! } }] }
+      : directRounds.length > 0
+      ? { round: { in: directRounds } }
+      : { drawDate: { gte: minDate! } }
 
   const draws = await prisma.lottoDraw.findMany({
-    where: { drawDate: { gte: minDate } },
+    where: drawsWhere,
     orderBy: { drawDate: 'asc' },
     select: { round: true, numbers: true, bonus: true, drawDate: true },
   })
+
+  const drawByRound = new Map(draws.map(d => [d.round, d]))
 
   // 4. 등위 계산
   const rankSummary: Record<number, object[]> = { 1: [], 2: [], 3: [], 4: [], 5: [] }
 
   for (const entry of myNumbers) {
-    // 생성일 이후 첫 번째 추첨 찾기
-    const draw = draws.find(d => d.drawDate >= entry.createdAt)
+    const draw = entry.drawRound !== null
+      ? drawByRound.get(entry.drawRound)
+      : draws.find(d => d.drawDate >= entry.createdAt)
     if (!draw) continue
 
     const rank = computeRank(entry.numbers, draw.numbers, draw.bonus)

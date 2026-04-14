@@ -113,11 +113,29 @@ export default function SajuStoreModal({ onClose, userOhaeng, isAdFree }: Props)
 
   const handleFetch = async () => {
     if (useLocation) {
+      if (!navigator.geolocation) {
+        setLocationError('위치 서비스를 지원하지 않는 브라우저입니다. 전국으로 검색합니다.')
+        await fetchStores()
+        return
+      }
+
+      // 이미 거부된 경우 바로 fallback
+      if ('permissions' in navigator) {
+        try {
+          const perm = await navigator.permissions.query({ name: 'geolocation' })
+          if (perm.state === 'denied') {
+            setLocationError('위치 권한이 거부되어 있습니다. 설정에서 허용 후 다시 시도해주세요.')
+            await fetchStores()
+            return
+          }
+        } catch {}
+      }
+
       setLocationLoading(true)
       setLocationError('')
       try {
         const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
-          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 8000 })
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000, maximumAge: 60000 })
         )
         setLocationLoading(false)
         await fetchStores(pos.coords.latitude, pos.coords.longitude)
