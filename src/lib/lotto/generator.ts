@@ -169,7 +169,7 @@ export function parseQrCode(qrData: string): {
     if (sets.length === 0 && parts.length >= 2) {
       const raw = parts.slice(1).join('')
       let pos = 0
-      while (pos + 12 <= raw.length) {
+      while (pos + 12 <= raw.length && sets.length < 10) {
         const chunk = raw.substring(pos, pos + 12)
         const nums: number[] = []
         let valid = true
@@ -178,8 +178,8 @@ export function parseQrCode(qrData: string): {
           if (isNaN(n) || n < 1 || n > 45) { valid = false; break }
           nums.push(n)
         }
-        if (valid) { sets.push(nums); pos += 12 }
-        else break
+        if (valid) sets.push(nums)
+        pos += 12
       }
     }
 
