@@ -22,6 +22,8 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
   const [isScanning, setIsScanning] = useState(false)
   const [hasCamera, setHasCamera] = useState(true)
   const [fileProcessing, setFileProcessing] = useState(false)
+  const [debugInfo, setDebugInfo] = useState('')
+  const scanCountRef = useRef(0)
   const scanningRef = useRef(false)
   const streamRef = useRef<MediaStream | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout>>()
@@ -33,14 +35,21 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
   }, [])
 
   const initDetector = () => {
-    if (!('BarcodeDetector' in window)) return
+    if (!('BarcodeDetector' in window)) {
+      setDebugInfo('BD:없음 jsQR사용')
+      return
+    }
     try {
       // getSupportedFormats() 없이 바로 생성 — Samsung Chrome 호환
       detectorRef.current = new BarcodeDetector({ formats: ['qr_code'] })
+      setDebugInfo('BD:초기화완료(qr)')
     } catch {
       try {
         detectorRef.current = new BarcodeDetector() // 포맷 제한 없이
-      } catch {}
+        setDebugInfo('BD:초기화완료(all)')
+      } catch {
+        setDebugInfo('BD:초기화실패')
+      }
     }
   }
 
@@ -48,6 +57,7 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('not supported')
       initDetector()
+      scanCountRef.current = 0
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
       })
@@ -83,18 +93,26 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
       scheduleScan(); return
     }
 
+    scanCountRef.current++
+    if (scanCountRef.current % 5 === 0) {
+      setDebugInfo(prev => prev.replace(/\s스캔\d+/g, '') + ` 스캔${scanCountRef.current}`)
+    }
+
     try {
       if (detectorRef.current) {
-        // 1차: 비디오 직접 전달 (가장 빠름)
-        let results = await detectorRef.current.detect(video)
-
-        // 2차: 비디오 직접 전달 실패 시 캔버스 캡처 후 전달
-        if (!results?.length) {
-          const canvas = canvasRef.current!
-          canvas.width = video.videoWidth
-          canvas.height = video.videoHeight
-          canvas.getContext('2d')!.drawImage(video, 0, 0)
-          results = await detectorRef.current.detect(canvas)
+        // canvas → ImageBitmap 방식 (가장 호환성 높음)
+        const canvas = canvasRef.current!
+        canvas.width = video.videoWidth
+        canvas.height = video.videoHeight
+        canvas.getContext('2d')!.drawImage(video, 0, 0)
+        const bitmap = await createImageBitmap(canvas)
+        let results: Array<{ rawValue: string }> = []
+        try {
+          results = await detectorRef.current.detect(bitmap)
+        } catch (e) {
+          setDebugInfo(prev => `BD오류:${String(e).slice(0, 30)}`)
+        } finally {
+          bitmap.close()
         }
 
         if (results?.[0]?.rawValue) {
@@ -230,6 +248,13 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
               background: 'rgba(0,0,0,0.65)', padding: '5px 14px', borderRadius: 100,
             }}>
               로또 용지의 QR코드를 비춰주세요
+            </span>
+          </div>
+        )}
+        {debugInfo && (
+          <div style={{ position: 'absolute', top: 8, left: 8, right: 8 }}>
+            <span style={{ fontSize: 10, color: '#0f0', background: 'rgba(0,0,0,0.8)', padding: '3px 8px', borderRadius: 4 }}>
+              {debugInfo}
             </span>
           </div>
         )}
