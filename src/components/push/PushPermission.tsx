@@ -61,10 +61,13 @@ export function PushPermission() {
         if (!token || !mounted) return
 
         // 서버에 토큰 저장 (upsert - 중복 방지)
+        const platform = /android/i.test(navigator.userAgent) ? 'android'
+          : /iphone|ipad|ipod/i.test(navigator.userAgent) ? 'ios'
+          : 'web'
         await fetch('/api/push/subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token, platform: 'android' }),
+          body: JSON.stringify({ token, platform }),
         })
       } catch {
         // 알림 거부 또는 네트워크 오류 - 무시
