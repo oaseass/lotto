@@ -1,10 +1,24 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import jsQR from 'jsqr'
 
 interface QrScannerProps {
   onScan: (data: string) => void
   onError?: (error: string) => void
+}
+
+// 이미지를 최대 width로 리사이즈 (큰 사진 처리 속도 개선)
+function resizeImageData(bitmap: ImageBitmap, maxWidth: number): ImageData {
+  const scale = Math.min(1, maxWidth / bitmap.width)
+  const w = Math.round(bitmap.width * scale)
+  const h = Math.round(bitmap.height * scale)
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')!
+  ctx.drawImage(bitmap, 0, 0, w, h)
+  return ctx.getImageData(0, 0, w, h)
 }
 
 export function QrScanner({ onScan, onError }: QrScannerProps) {
@@ -15,7 +29,8 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
   const [hasCamera, setHasCamera] = useState(true)
   const [fileProcessing, setFileProcessing] = useState(false)
   const streamRef = useRef<MediaStream | null>(null)
-  const animFrameRef = useRef<number>()
+  const timerRef = useRef<ReturnType<typeof setTimeout>>()
+  const scanningRef = useRef(false)
 
   useEffect(() => {
     startCamera()
@@ -33,7 +48,8 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
         videoRef.current.srcObject = stream
         videoRef.current.play()
         setIsScanning(true)
-        scanFrame()
+        scanningRef.current = true
+        scheduleScan()
       }
     } catch {
       setHasCamera(false)
@@ -47,20 +63,19 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
     setFileProcessing(true)
     try {
       const bitmap = await createImageBitmap(file)
-      const canvas = document.createElement('canvas')
-      canvas.width = bitmap.width
-      canvas.height = bitmap.height
-      const ctx = canvas.getContext('2d')!
-      ctx.drawImage(bitmap, 0, 0)
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      const { default: jsQR } = await import('jsqr')
-      const code = jsQR(imageData.data, imageData.width, imageData.height)
-      if (code?.data) {
-        stopCamera()
-        onScan(code.data)
-      } else {
-        onError?.('QR 코드를 인식하지 못했습니다. 다시 시도해주세요.')
+      // 원본 크기로 먼저 시도, 실패 시 리사이즈 후 재시도
+      for (const maxW of [bitmap.width, 1280, 800]) {
+        const imageData = resizeImageData(bitmap, maxW)
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: 'attemptBoth',
+        })
+        if (code?.data) {
+          stopCamera()
+          onScan(code.data)
+          return
+        }
       }
+      onError?.('QR 코드를 인식하지 못했습니다. QR 코드를 화면 가득 채워서 다시 찍어주세요.')
     } catch {
       onError?.('이미지를 처리할 수 없습니다.')
     } finally {
@@ -69,19 +84,24 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
   }
 
   const stopCamera = () => {
+    scanningRef.current = false
     streamRef.current?.getTracks().forEach(t => t.stop())
-    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
+    clearTimeout(timerRef.current)
     setIsScanning(false)
   }
 
-  const scanFrame = async () => {
-    if (!videoRef.current || !canvasRef.current) return
+  const scheduleScan = () => {
+    timerRef.current = setTimeout(scanFrame, 200)
+  }
+
+  const scanFrame = () => {
+    if (!scanningRef.current || !videoRef.current || !canvasRef.current) return
 
     const video = videoRef.current
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
     if (!ctx || video.readyState !== video.HAVE_ENOUGH_DATA) {
-      animFrameRef.current = requestAnimationFrame(scanFrame)
+      scheduleScan()
       return
     }
 
@@ -90,10 +110,10 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
     ctx.drawImage(video, 0, 0)
 
     try {
-      const { default: jsQR } = await import('jsqr')
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      const code = jsQR(imageData.data, imageData.width, imageData.height)
-
+      const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        inversionAttempts: 'dontInvert',
+      })
       if (code?.data) {
         stopCamera()
         onScan(code.data)
@@ -101,7 +121,7 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
       }
     } catch {}
 
-    animFrameRef.current = requestAnimationFrame(scanFrame)
+    scheduleScan()
   }
 
   if (!hasCamera) {
