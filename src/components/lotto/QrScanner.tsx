@@ -1,13 +1,21 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { BrowserQRCodeReader } from '@zxing/browser'
-import { NotFoundException } from '@zxing/library'
+
+// BarcodeDetector API (Chrome/Android 네이티브 하드웨어 가속)
+declare global {
+  class BarcodeDetector {
+    constructor(options?: { formats: string[] })
+    detect(image: HTMLVideoElement | ImageBitmap): Promise<Array<{ rawValue: string }>>
+  }
+}
 
 interface QrScannerProps {
   onScan: (data: string) => void
   onError?: (error: string) => void
 }
+
+const HAS_NATIVE = typeof window !== 'undefined' && 'BarcodeDetector' in window
 
 export function QrScanner({ onScan, onError }: QrScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -15,8 +23,9 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
   const [isScanning, setIsScanning] = useState(false)
   const [hasCamera, setHasCamera] = useState(true)
   const [fileProcessing, setFileProcessing] = useState(false)
-  const controlsRef = useRef<{ stop: () => void } | null>(null)
-  const readerRef = useRef<BrowserQRCodeReader | null>(null)
+  const scanningRef = useRef(false)
+  const streamRef = useRef<MediaStream | null>(null)
+  const rafRef = useRef<number>()
 
   useEffect(() => {
     startCamera()
@@ -26,34 +35,73 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
   const startCamera = async () => {
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('not supported')
-      const reader = new BrowserQRCodeReader()
-      readerRef.current = reader
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+      })
+      streamRef.current = stream
       if (!videoRef.current) return
+      videoRef.current.srcObject = stream
+      await videoRef.current.play()
+      scanningRef.current = true
+      setIsScanning(true)
 
-      const controls = await reader.decodeFromConstraints(
-        { video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } },
+      if (HAS_NATIVE) {
+        scanNative()
+      } else {
+        scanZxing()
+      }
+    } catch {
+      setHasCamera(false)
+    }
+  }
+
+  // ── 네이티브 BarcodeDetector (Android Chrome / TWA) ──
+  const scanNative = async () => {
+    const detector = new BarcodeDetector({ formats: ['qr_code'] })
+    const loop = async () => {
+      if (!scanningRef.current || !videoRef.current) return
+      const video = videoRef.current
+      if (video.readyState >= 2) {
+        try {
+          const results = await detector.detect(video)
+          if (results[0]?.rawValue) {
+            stopCamera()
+            onScan(results[0].rawValue)
+            return
+          }
+        } catch {}
+      }
+      rafRef.current = requestAnimationFrame(loop)
+    }
+    rafRef.current = requestAnimationFrame(loop)
+  }
+
+  // ── ZXing 폴백 (기타 브라우저) ──
+  const scanZxing = async () => {
+    const { BrowserQRCodeReader } = await import('@zxing/browser')
+    const { NotFoundException } = await import('@zxing/library')
+    if (!videoRef.current) return
+    try {
+      const controls = await new BrowserQRCodeReader().decodeFromConstraints(
+        { video: { facingMode: 'environment' } },
         videoRef.current,
         (result, err) => {
-          if (result) {
-            stopCamera()
-            onScan(result.getText())
-          }
-          // NotFoundException은 '아직 못 읽음' 이므로 무시
-          if (err && !(err instanceof NotFoundException)) {
-            console.warn('ZXing scan error:', err)
-          }
+          if (result) { stopCamera(); onScan(result.getText()) }
+          if (err && !(err instanceof NotFoundException)) console.warn(err)
         }
       )
-      controlsRef.current = controls
-      setIsScanning(true)
+      // controls.stop은 stopCamera에서 처리 못하므로 별도 ref에 저장
+      ;(videoRef.current as any)._zxingStop = () => controls.stop()
     } catch {
       setHasCamera(false)
     }
   }
 
   const stopCamera = () => {
-    controlsRef.current?.stop()
-    controlsRef.current = null
+    scanningRef.current = false
+    cancelAnimationFrame(rafRef.current!)
+    streamRef.current?.getTracks().forEach(t => t.stop())
+    ;(videoRef.current as any)?._zxingStop?.()
     setIsScanning(false)
   }
 
@@ -62,21 +110,30 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
     if (!file) return
     e.target.value = ''
     setFileProcessing(true)
-
-    const reader = new BrowserQRCodeReader()
-    const url = URL.createObjectURL(file)
     try {
-      const result = await reader.decodeFromImageUrl(url)
-      stopCamera()
-      onScan(result.getText())
-    } catch (err) {
-      if (err instanceof NotFoundException) {
-        onError?.('QR 코드를 인식하지 못했습니다. QR 코드를 화면 가득 가깝게 찍어주세요.')
+      const bitmap = await createImageBitmap(file)
+
+      if (HAS_NATIVE) {
+        const detector = new BarcodeDetector({ formats: ['qr_code'] })
+        const results = await detector.detect(bitmap)
+        if (results[0]?.rawValue) { stopCamera(); onScan(results[0].rawValue); return }
+        onError?.('QR 코드를 인식하지 못했습니다. QR 코드를 가깝게 찍어주세요.')
       } else {
-        onError?.('이미지를 처리할 수 없습니다.')
+        // ZXing으로 폴백
+        const { BrowserQRCodeReader } = await import('@zxing/browser')
+        const url = URL.createObjectURL(file)
+        try {
+          const result = await new BrowserQRCodeReader().decodeFromImageUrl(url)
+          stopCamera(); onScan(result.getText())
+        } catch {
+          onError?.('QR 코드를 인식하지 못했습니다. QR 코드를 가깝게 찍어주세요.')
+        } finally {
+          URL.revokeObjectURL(url)
+        }
       }
+    } catch {
+      onError?.('이미지를 처리할 수 없습니다.')
     } finally {
-      URL.revokeObjectURL(url)
       setFileProcessing(false)
     }
   }
@@ -96,36 +153,22 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
         <p style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>
           설정 &gt; Chrome &gt; 카메라 권한을 허용하거나<br/>아래 버튼으로 사진을 찍어 QR을 읽어보세요
         </p>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleFileCapture}
-          style={{ display: 'none' }}
-        />
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={fileProcessing}
+        <input ref={fileInputRef} type="file" accept="image/*" capture="environment"
+          onChange={handleFileCapture} style={{ display: 'none' }} />
+        <button onClick={() => fileInputRef.current?.click()} disabled={fileProcessing}
           style={{
             width: '100%', height: 44,
             background: fileProcessing ? '#ccc' : '#007bc3',
             color: '#fff', fontSize: 13, fontWeight: 700,
-            border: 'none', borderRadius: 8, cursor: 'pointer',
-            marginBottom: 8,
-          }}
-        >
+            border: 'none', borderRadius: 8, cursor: 'pointer', marginBottom: 8,
+          }}>
           {fileProcessing ? '인식 중...' : '📷 카메라로 QR 찍기'}
         </button>
-        <button
-          onClick={() => { setHasCamera(true); startCamera() }}
+        <button onClick={() => { setHasCamera(true); startCamera() }}
           style={{
-            width: '100%', height: 36,
-            background: '#fff', color: '#555',
-            fontSize: 12, border: '1px solid #dcdcdc',
-            borderRadius: 8, cursor: 'pointer',
-          }}
-        >
+            width: '100%', height: 36, background: '#fff', color: '#555',
+            fontSize: 12, border: '1px solid #dcdcdc', borderRadius: 8, cursor: 'pointer',
+          }}>
           카메라 권한 허용 후 다시 시도
         </button>
       </div>
@@ -135,14 +178,10 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
   return (
     <div>
       <div style={{ position: 'relative', borderRadius: 18, overflow: 'hidden', background: '#000' }}>
-        <video
-          ref={videoRef}
+        <video ref={videoRef}
           style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }}
-          playsInline
-          muted
-        />
+          playsInline muted />
 
-        {/* 스캔 가이드 오버레이 */}
         <div style={{
           position: 'absolute', inset: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -154,12 +193,8 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
               { top: 0, right: 0, borderLeft: 'none', borderBottom: 'none' },
               { bottom: 0, left: 0, borderRight: 'none', borderTop: 'none' },
               { bottom: 0, right: 0, borderLeft: 'none', borderTop: 'none' },
-            ].map((style, i) => (
-              <div key={i} style={{
-                position: 'absolute', width: 28, height: 28,
-                border: '2.5px solid var(--amber)',
-                ...style,
-              }} />
+            ].map((s, i) => (
+              <div key={i} style={{ position: 'absolute', width: 28, height: 28, border: '2.5px solid var(--amber)', ...s }} />
             ))}
             <div style={{
               position: 'absolute', left: 0, right: 0, top: '50%',
@@ -171,9 +206,7 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
         </div>
 
         {isScanning && (
-          <div style={{
-            position: 'absolute', bottom: 16, left: 0, right: 0, textAlign: 'center',
-          }}>
+          <div style={{ position: 'absolute', bottom: 16, left: 0, right: 0, textAlign: 'center' }}>
             <span style={{
               fontSize: 12, color: 'var(--amber)', fontWeight: 600,
               background: 'rgba(0,0,0,0.65)', padding: '5px 14px', borderRadius: 100,
@@ -182,34 +215,21 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
             </span>
           </div>
         )}
-
-        <style>{`
-          @keyframes scanLine {
-            0%, 100% { transform: translateY(-50px); opacity: 0.4; }
-            50% { transform: translateY(50px); opacity: 1; }
-          }
-        `}</style>
+        <style>{`@keyframes scanLine {
+          0%,100%{transform:translateY(-50px);opacity:.4}
+          50%{transform:translateY(50px);opacity:1}
+        }`}</style>
       </div>
 
-      {/* 파일 촬영 fallback */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handleFileCapture}
-        style={{ display: 'none' }}
-      />
-      <button
-        onClick={() => fileInputRef.current?.click()}
-        disabled={fileProcessing}
+      <input ref={fileInputRef} type="file" accept="image/*" capture="environment"
+        onChange={handleFileCapture} style={{ display: 'none' }} />
+      <button onClick={() => fileInputRef.current?.click()} disabled={fileProcessing}
         style={{
           width: '100%', height: 40, marginTop: 10,
           background: fileProcessing ? '#ccc' : '#f5f5f5',
           color: '#555', fontSize: 12,
           border: '1px solid #dcdcdc', borderRadius: 8, cursor: 'pointer',
-        }}
-      >
+        }}>
         {fileProcessing ? '인식 중...' : '📷 카메라가 안될 때: 사진 찍어서 QR 읽기'}
       </button>
     </div>
