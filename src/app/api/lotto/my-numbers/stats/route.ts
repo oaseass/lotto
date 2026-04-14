@@ -56,7 +56,7 @@ export async function GET() {
     }
   }
   const topNumbers = Object.entries(freq)
-    .map(([num, count]) => ({ num: parseInt(num), count }))
+    .map(([num, count]) => ({ num: parseInt(num, 10), count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 10)
 

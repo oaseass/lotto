@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 export async function GET(req: NextRequest) {
-  const round = parseInt(req.nextUrl.searchParams.get('round') || '0')
+  const round = parseInt(req.nextUrl.searchParams.get('round') || '0', 10)
   if (!round) return NextResponse.json({ ranks: [] })
 
   try {

@@ -30,6 +30,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '필수 정보를 입력해주세요' }, { status: 400 })
     }
 
+    // 이메일 형식 검증
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json({ error: '올바른 이메일 형식을 입력해주세요' }, { status: 400 })
+    }
+
+    // 비밀번호 길이 검증 (bcrypt는 72바이트 초과 시 잘림)
+    if (password.length < 8 || password.length > 72) {
+      return NextResponse.json({ error: '비밀번호는 8자 이상 72자 이하로 입력해주세요' }, { status: 400 })
+    }
+
     // 중복 이메일 체크
     const existing = await prisma.user.findUnique({ where: { email } })
     if (existing) {

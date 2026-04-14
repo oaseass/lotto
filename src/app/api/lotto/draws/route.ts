@@ -15,11 +15,11 @@ function serializeDraw(draw: any) {
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const round = searchParams.get('round')
-  const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 100)
+  const limit = Math.min(parseInt(searchParams.get('limit') || '10', 10), 100)
 
   try {
     if (round) {
-      const draw = await prisma.lottoDraw.findUnique({ where: { round: parseInt(round) } })
+      const draw = await prisma.lottoDraw.findUnique({ where: { round: parseInt(round, 10) } })
       if (!draw) return NextResponse.json({ error: '해당 회차를 찾을 수 없습니다' }, { status: 404 })
       return NextResponse.json(serializeDraw(draw))
     } else {

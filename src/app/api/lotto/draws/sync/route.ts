@@ -11,10 +11,12 @@ import { prisma } from '@/lib/prisma'
 import { fetchLottoDraw, parseDraw, estimateCurrentRound } from '@/lib/lotto/dhlottery'
 
 export async function POST(req: NextRequest) {
-  // 보안: 내부 크론 요청만 허용 (개발 환경은 패스)
+  // 보안: 개발환경은 패스, 프로덕션은 CRON_SECRET 필수
   if (process.env.NODE_ENV !== 'development') {
+    const cronSecret = process.env.CRON_SECRET
+    if (!cronSecret) return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
     const authHeader = req.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    if (authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: '권한 없음' }, { status: 401 })
     }
   }

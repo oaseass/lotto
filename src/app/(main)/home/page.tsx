@@ -694,23 +694,12 @@ export default function HomePage() {
   useEffect(() => {
     const init = async () => {
       try {
-        // 자동 동기화 (미저장 최신 회차 업데이트)
-        const syncRes = await fetch('/api/lotto/draws/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-        })
-        const syncData = await syncRes.json()
-
-        // 최신 회차 조회 (sync 후)
+        // 최신 회차 조회 (sync는 SyncInitializer에서 처리)
         const drawRes = await fetch('/api/lotto/draws?limit=1')
         if (drawRes.ok) {
           const draws = await drawRes.json()
           if (draws?.[0]?.numbers) setDraw(draws[0])
         }
-
-        setToastMsg('최신 정보를 수신하였습니다')
-        setTimeout(() => setToastMsg(''), 3000)
       } catch {}
       setLoadingDraw(false)
     }

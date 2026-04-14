@@ -151,7 +151,7 @@ export function getDayPillar(
 
 /**
  * 오행 비율 계산 (천간 + 지지 본기 + 지장간 가중치 포함)
- * 천간: 1점, 지지 본기: 1점, 지장간: 0.5점 (여기) / 0.5점 (중기)
+ * 천간: 1점, 지지 본기: 1점, 지장간: 본기 0.3점 / 나머지 0.2점씩
  */
 export function calculateOhaengRatio(cheonjigan: Cheonjigan): OhaengRatio {
   const ratio: OhaengRatio = { 목: 0, 화: 0, 토: 0, 금: 0, 수: 0 }

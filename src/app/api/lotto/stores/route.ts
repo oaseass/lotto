@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
   const lng = searchParams.get('lng') ? parseFloat(searchParams.get('lng')!) : null
   const ohaeng = searchParams.get('ohaeng')
   const radius = parseFloat(searchParams.get('radius') || '10')
-  const top = parseInt(searchParams.get('top') || '20')
+  const top = parseInt(searchParams.get('top') || '20', 10)
 
   try {
     const excludeInternet: Prisma.LottoStoreWhereInput = {
