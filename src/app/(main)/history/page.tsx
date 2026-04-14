@@ -223,7 +223,7 @@ function SavedNumbers() {
   )
 
   const now = new Date()
-  const cutoff = (months: number) => new Date(now.getTime() - months * 30 * 24 * 60 * 60 * 1000)
+  const cutoff = (months: number) => { const d = new Date(now); d.setMonth(d.getMonth() - months); return d }
   const thisYearStart = new Date(now.getFullYear(), 0, 1)
 
   // 사용 가능한 년도/월 추출
@@ -466,7 +466,7 @@ function ScanHistory() {
   )
 
   const now = new Date()
-  const cutoff = (months: number) => new Date(now.getTime() - months * 30 * 24 * 60 * 60 * 1000)
+  const cutoff = (months: number) => { const d = new Date(now); d.setMonth(d.getMonth() - months); return d }
   const thisYearStart = new Date(now.getFullYear(), 0, 1)
 
   // 사용 가능한 년도/월 추출

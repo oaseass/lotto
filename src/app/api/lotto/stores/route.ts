@@ -204,6 +204,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(stores.slice(0, top))
   } catch (error) {
     console.error('Store fetch error:', error)
-    return NextResponse.json([], { status: 200 })
+    return NextResponse.json({ error: '판매점 조회 중 오류가 발생했습니다' }, { status: 500 })
   }
 }

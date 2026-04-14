@@ -12,7 +12,10 @@ export async function POST() {
     const session = await auth()
     if (!session?.user?.id) return NextResponse.json({ error: '로그인 필요' }, { status: 401 })
 
-    const profile = await prisma.sajuProfile.findUnique({ where: { userId: session.user.id } })
+    const profile = await prisma.sajuProfile.findUnique({
+      where: { userId: session.user.id },
+      include: { user: { select: { gender: true } } },
+    })
     if (!profile) return NextResponse.json({ error: '사주 프로필 없음' }, { status: 404 })
 
     const sy = (profile as any).solarYear ?? profile.birthYear
@@ -23,7 +26,7 @@ export async function POST() {
     const ohaeng = (profile.ohaeng as any) ?? calculateOhaengRatio(cheonjigan)
     const yongsinArr = profile.yongsin ? profile.yongsin.split(',') : null
     const yongsin = yongsinArr?.[0] ?? calculateYongsin(ohaeng)[0]
-    const gender = (profile as any).gender === 'F' ? 'F' : 'M'
+    const gender: 'M' | 'F' = (profile as any).user?.gender === 'F' ? 'F' : 'M'
     const daeun = calculateDaeun(sy, sm, sd, gender, cheonjigan.month, cheonjigan.year)
 
     const result = generateReading(cheonjigan, ohaeng, yongsin, daeun, sy)
