@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 declare global {
   class BarcodeDetector {
     constructor(options?: { formats: string[] })
-    detect(image: ImageBitmap | HTMLCanvasElement): Promise<Array<{ rawValue: string }>>
+    detect(image: HTMLVideoElement | HTMLCanvasElement | ImageBitmap): Promise<Array<{ rawValue: string }>>
     static getSupportedFormats(): Promise<string[]>
   }
 }
@@ -32,18 +32,22 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
     return () => stopCamera()
   }, [])
 
+  const initDetector = () => {
+    if (!('BarcodeDetector' in window)) return
+    try {
+      // getSupportedFormats() 없이 바로 생성 — Samsung Chrome 호환
+      detectorRef.current = new BarcodeDetector({ formats: ['qr_code'] })
+    } catch {
+      try {
+        detectorRef.current = new BarcodeDetector() // 포맷 제한 없이
+      } catch {}
+    }
+  }
+
   const startCamera = async () => {
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('not supported')
-
-      // BarcodeDetector 지원 여부 확인
-      if ('BarcodeDetector' in window) {
-        const formats = await BarcodeDetector.getSupportedFormats()
-        if (formats.includes('qr_code')) {
-          detectorRef.current = new BarcodeDetector({ formats: ['qr_code'] })
-        }
-      }
-
+      initDetector()
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
       })
@@ -69,48 +73,48 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
   }
 
   const scheduleScan = () => {
-    // BarcodeDetector는 매우 빠르므로 100ms, ZXing 폴백은 200ms
-    timerRef.current = setTimeout(scanFrame, detectorRef.current ? 100 : 200)
+    timerRef.current = setTimeout(scanFrame, detectorRef.current ? 80 : 200)
   }
 
   const scanFrame = async () => {
     if (!scanningRef.current) return
     const video = videoRef.current
-    const canvas = canvasRef.current
-    if (!video || !canvas || video.readyState < 2 || video.videoWidth === 0) {
-      scheduleScan()
-      return
+    if (!video || video.readyState < 2 || video.videoWidth === 0) {
+      scheduleScan(); return
     }
-
-    // 비디오 프레임을 캔버스에 캡처
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
-    const ctx = canvas.getContext('2d')!
-    ctx.drawImage(video, 0, 0)
 
     try {
       if (detectorRef.current) {
-        // ── 네이티브 BarcodeDetector (Android Chrome) ──
-        const bitmap = await createImageBitmap(canvas)
-        const results = await detectorRef.current.detect(bitmap)
-        bitmap.close()
-        if (results[0]?.rawValue) {
+        // 1차: 비디오 직접 전달 (가장 빠름)
+        let results = await detectorRef.current.detect(video)
+
+        // 2차: 비디오 직접 전달 실패 시 캔버스 캡처 후 전달
+        if (!results?.length) {
+          const canvas = canvasRef.current!
+          canvas.width = video.videoWidth
+          canvas.height = video.videoHeight
+          canvas.getContext('2d')!.drawImage(video, 0, 0)
+          results = await detectorRef.current.detect(canvas)
+        }
+
+        if (results?.[0]?.rawValue) {
           stopCamera()
           onScan(results[0].rawValue)
           return
         }
       } else {
-        // ── ZXing 폴백 ──
+        // jsQR 폴백
+        const canvas = canvasRef.current!
+        canvas.width = video.videoWidth
+        canvas.height = video.videoHeight
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(video, 0, 0)
         const { default: jsQR } = await import('jsqr')
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+        const code = jsQR(imageData.data, canvas.width, canvas.height, {
           inversionAttempts: 'dontInvert',
         })
-        if (code?.data) {
-          stopCamera()
-          onScan(code.data)
-          return
-        }
+        if (code?.data) { stopCamera(); onScan(code.data); return }
       }
     } catch {}
 
@@ -123,32 +127,28 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
     e.target.value = ''
     setFileProcessing(true)
     try {
-      const bitmap = await createImageBitmap(file)
-
       if (detectorRef.current || 'BarcodeDetector' in window) {
-        // 네이티브
-        const detector = detectorRef.current ?? new BarcodeDetector({ formats: ['qr_code'] })
+        const detector = detectorRef.current ?? (() => {
+          try { return new BarcodeDetector({ formats: ['qr_code'] }) } catch { return new BarcodeDetector() }
+        })()
+        const bitmap = await createImageBitmap(file)
         const results = await detector.detect(bitmap)
         bitmap.close()
-        if (results[0]?.rawValue) { stopCamera(); onScan(results[0].rawValue); return }
+        if (results?.[0]?.rawValue) { stopCamera(); onScan(results[0].rawValue); return }
       } else {
-        // ZXing 폴백: 원본 → 1280px → 800px 순 시도
         const { default: jsQR } = await import('jsqr')
-        for (const maxW of [bitmap.width, 1280, 800]) {
-          const scale = Math.min(1, maxW / bitmap.width)
-          const w = Math.round(bitmap.width * scale)
-          const h = Math.round(bitmap.height * scale)
+        for (const maxW of [4096, 1280, 800]) {
+          const bitmap = await createImageBitmap(file, { resizeWidth: Math.min(maxW, (await createImageBitmap(file)).width) })
           const cv = document.createElement('canvas')
-          cv.width = w; cv.height = h
+          cv.width = bitmap.width; cv.height = bitmap.height
           const ctx = cv.getContext('2d')!
-          ctx.drawImage(bitmap, 0, 0, w, h)
-          const imageData = ctx.getImageData(0, 0, w, h)
-          const code = jsQR(imageData.data, w, h, { inversionAttempts: 'attemptBoth' })
+          ctx.drawImage(bitmap, 0, 0)
+          const code = jsQR(ctx.getImageData(0, 0, cv.width, cv.height).data, cv.width, cv.height, { inversionAttempts: 'attemptBoth' })
+          bitmap.close()
           if (code?.data) { stopCamera(); onScan(code.data); return }
         }
-        bitmap.close()
       }
-      onError?.('QR 코드를 인식하지 못했습니다. QR 코드를 가깝게 찍어주세요.')
+      onError?.('QR 코드를 인식하지 못했습니다. QR 코드를 화면 가득 채워서 찍어주세요.')
     } catch {
       onError?.('이미지를 처리할 수 없습니다.')
     } finally {
@@ -175,8 +175,7 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
           onChange={handleFileCapture} style={{ display: 'none' }} />
         <button onClick={() => fileInputRef.current?.click()} disabled={fileProcessing}
           style={{
-            width: '100%', height: 44,
-            background: fileProcessing ? '#ccc' : '#007bc3',
+            width: '100%', height: 44, background: fileProcessing ? '#ccc' : '#007bc3',
             color: '#fff', fontSize: 13, fontWeight: 700,
             border: 'none', borderRadius: 8, cursor: 'pointer', marginBottom: 8,
           }}>
