@@ -1,36 +1,22 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import jsQR from 'jsqr'
+import { BrowserQRCodeReader } from '@zxing/browser'
+import { NotFoundException } from '@zxing/library'
 
 interface QrScannerProps {
   onScan: (data: string) => void
   onError?: (error: string) => void
 }
 
-// 이미지를 최대 width로 리사이즈 (큰 사진 처리 속도 개선)
-function resizeImageData(bitmap: ImageBitmap, maxWidth: number): ImageData {
-  const scale = Math.min(1, maxWidth / bitmap.width)
-  const w = Math.round(bitmap.width * scale)
-  const h = Math.round(bitmap.height * scale)
-  const canvas = document.createElement('canvas')
-  canvas.width = w
-  canvas.height = h
-  const ctx = canvas.getContext('2d')!
-  ctx.drawImage(bitmap, 0, 0, w, h)
-  return ctx.getImageData(0, 0, w, h)
-}
-
 export function QrScanner({ onScan, onError }: QrScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isScanning, setIsScanning] = useState(false)
   const [hasCamera, setHasCamera] = useState(true)
   const [fileProcessing, setFileProcessing] = useState(false)
-  const streamRef = useRef<MediaStream | null>(null)
-  const timerRef = useRef<ReturnType<typeof setTimeout>>()
-  const scanningRef = useRef(false)
+  const controlsRef = useRef<{ stop: () => void } | null>(null)
+  const readerRef = useRef<BrowserQRCodeReader | null>(null)
 
   useEffect(() => {
     startCamera()
@@ -40,20 +26,35 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
   const startCamera = async () => {
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('not supported')
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-      })
-      streamRef.current = stream
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        videoRef.current.play()
-        setIsScanning(true)
-        scanningRef.current = true
-        scheduleScan()
-      }
+      const reader = new BrowserQRCodeReader()
+      readerRef.current = reader
+      if (!videoRef.current) return
+
+      const controls = await reader.decodeFromConstraints(
+        { video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } },
+        videoRef.current,
+        (result, err) => {
+          if (result) {
+            stopCamera()
+            onScan(result.getText())
+          }
+          // NotFoundException은 '아직 못 읽음' 이므로 무시
+          if (err && !(err instanceof NotFoundException)) {
+            console.warn('ZXing scan error:', err)
+          }
+        }
+      )
+      controlsRef.current = controls
+      setIsScanning(true)
     } catch {
       setHasCamera(false)
     }
+  }
+
+  const stopCamera = () => {
+    controlsRef.current?.stop()
+    controlsRef.current = null
+    setIsScanning(false)
   }
 
   const handleFileCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -61,67 +62,23 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
     if (!file) return
     e.target.value = ''
     setFileProcessing(true)
+
+    const reader = new BrowserQRCodeReader()
+    const url = URL.createObjectURL(file)
     try {
-      const bitmap = await createImageBitmap(file)
-      // 원본 크기로 먼저 시도, 실패 시 리사이즈 후 재시도
-      for (const maxW of [bitmap.width, 1280, 800]) {
-        const imageData = resizeImageData(bitmap, maxW)
-        const code = jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: 'attemptBoth',
-        })
-        if (code?.data) {
-          stopCamera()
-          onScan(code.data)
-          return
-        }
+      const result = await reader.decodeFromImageUrl(url)
+      stopCamera()
+      onScan(result.getText())
+    } catch (err) {
+      if (err instanceof NotFoundException) {
+        onError?.('QR 코드를 인식하지 못했습니다. QR 코드를 화면 가득 가깝게 찍어주세요.')
+      } else {
+        onError?.('이미지를 처리할 수 없습니다.')
       }
-      onError?.('QR 코드를 인식하지 못했습니다. QR 코드를 화면 가득 채워서 다시 찍어주세요.')
-    } catch {
-      onError?.('이미지를 처리할 수 없습니다.')
     } finally {
+      URL.revokeObjectURL(url)
       setFileProcessing(false)
     }
-  }
-
-  const stopCamera = () => {
-    scanningRef.current = false
-    streamRef.current?.getTracks().forEach(t => t.stop())
-    clearTimeout(timerRef.current)
-    setIsScanning(false)
-  }
-
-  const scheduleScan = () => {
-    timerRef.current = setTimeout(scanFrame, 200)
-  }
-
-  const scanFrame = () => {
-    if (!scanningRef.current || !videoRef.current || !canvasRef.current) return
-
-    const video = videoRef.current
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext('2d')
-    if (!ctx || video.readyState !== video.HAVE_ENOUGH_DATA) {
-      scheduleScan()
-      return
-    }
-
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
-    ctx.drawImage(video, 0, 0)
-
-    try {
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      const code = jsQR(imageData.data, imageData.width, imageData.height, {
-        inversionAttempts: 'dontInvert',
-      })
-      if (code?.data) {
-        stopCamera()
-        onScan(code.data)
-        return
-      }
-    } catch {}
-
-    scheduleScan()
   }
 
   if (!hasCamera) {
@@ -184,7 +141,6 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
           playsInline
           muted
         />
-        <canvas ref={canvasRef} style={{ display: 'none' }} />
 
         {/* 스캔 가이드 오버레이 */}
         <div style={{
@@ -193,7 +149,6 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
           pointerEvents: 'none',
         }}>
           <div style={{ position: 'relative', width: '65%', aspectRatio: '1' }}>
-            {/* 코너 마커 4개 */}
             {[
               { top: 0, left: 0, borderRight: 'none', borderBottom: 'none' },
               { top: 0, right: 0, borderLeft: 'none', borderBottom: 'none' },
@@ -206,7 +161,6 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
                 ...style,
               }} />
             ))}
-            {/* 스캔 라인 */}
             <div style={{
               position: 'absolute', left: 0, right: 0, top: '50%',
               height: 2, background: 'var(--amber)',
