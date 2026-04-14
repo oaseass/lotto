@@ -59,9 +59,12 @@ export async function sendPush(
         android: {
           priority: 'high',
           notification: {
-            icon: 'ic_notification',
             color: '#F5C842',
-            clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+          },
+        },
+        webpush: {
+          notification: {
+            icon: '/icon-192.png',
           },
         },
       })

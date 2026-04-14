@@ -46,3 +46,5 @@ next-env.d.ts
 dev.log
 # apk data
 scripts/_apk_data.json
+
+.vercel
