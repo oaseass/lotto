@@ -20,27 +20,12 @@ function KakaoCustomProvider(): OAuthConfig<any> {
     },
     token: {
       url: 'https://kauth.kakao.com/oauth/token',
-      async request({ params, provider }: any) {
-        // NextAuth v5 beta forces PKCE even with checks:['state']; do exchange manually
-        const body = new URLSearchParams({
-          grant_type: 'authorization_code',
-          code: params.code,
-          redirect_uri: provider.callbackUrl,
-          client_id: provider.clientId,
-          client_secret: provider.clientSecret,
-        })
-        const res = await fetch('https://kauth.kakao.com/oauth/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: body.toString(),
-        })
-        if (!res.ok) {
-          const text = await res.text()
-          console.error('[Kakao token] exchange failed:', res.status, text)
-          throw new Error(`Kakao token exchange failed: ${res.status}`)
-        }
-        const tokens = await res.json()
-        return { tokens }
+      async conform(response: Response): Promise<Response | undefined> {
+        // Log actual Kakao token response for debugging
+        const clone = response.clone()
+        const text = await clone.text()
+        console.log('[Kakao token conform] status:', response.status, 'body:', text.slice(0, 500))
+        return undefined
       },
     },
     userinfo: { url: 'https://kapi.kakao.com/v2/user/me' },
