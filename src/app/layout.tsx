@@ -6,6 +6,7 @@ import type { Metadata } from 'next'
 import Script from 'next/script'
 import './globals.css'
 import { Providers } from '@/components/ui/Providers'
+import { SplashScreen } from '@/components/ui/SplashScreen'
 import { auth } from '@/lib/auth'
 
 export const metadata: Metadata = {
@@ -39,6 +40,7 @@ export default async function RootLayout({
           />
         )}
         <Providers session={session}>
+          <SplashScreen />
           {children}
         </Providers>
       </body>
