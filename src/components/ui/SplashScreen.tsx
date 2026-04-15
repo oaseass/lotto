@@ -41,7 +41,7 @@ export function SplashScreen() {
       }}
     >
       <img
-        src="/splash.jpg"
+        src="/splash.png"
         alt="사주로또"
         style={{
           width: '100%',
