@@ -41,12 +41,23 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // 당첨 결과 계산
+    // 당첨 결과 계산 + 실제 당첨금 적용
     const result = calculateResult(sets, draw.numbers, draw.bonus)
-    const totalPrize = result.reduce((sum, r) => sum + r.prize, 0)
+    const prizeByRank: Record<number, number> = {
+      1: Number(draw.prize1st ?? 0),
+      2: Number(draw.prize2nd ?? 0),
+      3: draw.prize3rd ?? 1500000,
+      4: draw.prize4th ?? 50000,
+      5: 5000,
+    }
+    const resultWithPrize = result.map(r => ({
+      ...r,
+      prize: r.rank ? (prizeByRank[r.rank] ?? 0) : 0,
+    }))
+    const totalPrize = resultWithPrize.reduce((sum, r) => sum + r.prize, 0)
 
     // 원본 스캔 번호를 결과에 포함
-    const setsWithNumbers = result.map((r, i) => ({ ...r, numbers: sets[i] }))
+    const setsWithNumbers = resultWithPrize.map((r, i) => ({ ...r, numbers: sets[i] }))
 
     // 로그인 사용자면 이력 저장 (실패해도 스캔 결과는 반환)
     if (session?.user?.id) {
@@ -56,7 +67,7 @@ export async function POST(req: NextRequest) {
             userId: session.user.id,
             round,
             scannedNumbers: sets.map((nums, i) => ({ set: i + 1, numbers: nums })),
-            result,
+            result: resultWithPrize,
             totalPrize: BigInt(totalPrize),
           },
         })
@@ -65,7 +76,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const vParam = new URL(qrData).searchParams.get('v') ?? ''
     return NextResponse.json({
       round,
       drawDate: draw.drawDate,
@@ -73,7 +83,6 @@ export async function POST(req: NextRequest) {
       bonus: draw.bonus,
       sets: setsWithNumbers,
       totalPrize,
-      _dbg: { setsCount: sets.length, vLen: vParam.length, v: vParam },
     })
   } catch (error) {
     console.error('QR 스캔 오류:', error)
