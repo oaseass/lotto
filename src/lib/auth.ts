@@ -64,7 +64,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     process.env.AUTH_SECRET!,
     'change-me-to-a-random-32-char-string',
   ],
-  debug: false,
+  debug: true,
   providers: [
     // 이메일+비번 로그인
     CredentialsProvider({
