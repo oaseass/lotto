@@ -110,7 +110,9 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    return NextResponse.json(scans)
+    return NextResponse.json(
+      scans.map(s => ({ ...s, totalPrize: Number(s.totalPrize) }))
+    )
   } catch (error) {
     return NextResponse.json({ error: '조회 실패' }, { status: 500 })
   }
