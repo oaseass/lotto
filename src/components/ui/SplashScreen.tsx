@@ -6,11 +6,10 @@ const SHOW_DURATION = 1800
 const FADE_DURATION = 400
 
 export function SplashScreen() {
-  const [visible, setVisible] = useState(false)
+  const [visible, setVisible] = useState(true)
   const [fading, setFading] = useState(false)
 
   useEffect(() => {
-    setVisible(true)
     const fadeTimer = setTimeout(() => setFading(true), SHOW_DURATION)
     const hideTimer = setTimeout(() => setVisible(false), SHOW_DURATION + FADE_DURATION)
     return () => { clearTimeout(fadeTimer); clearTimeout(hideTimer) }
