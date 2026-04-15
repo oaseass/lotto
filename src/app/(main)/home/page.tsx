@@ -677,8 +677,6 @@ export default function HomePage() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const round = estimateCurrentRound()
-  const [draw, setDraw] = useState<DrawInfo | null>(null)
-  const [loadingDraw, setLoadingDraw] = useState(true)
   const [genError, setGenError] = useState('')
   const [toastMsg, setToastMsg] = useState('')
   const [showManualSheet, setShowManualSheet] = useState(false)
@@ -691,20 +689,18 @@ export default function HomePage() {
   const [settled, setSettled] = useState<boolean[]>([false, false, false, false, false, false])
   const animIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  useEffect(() => {
-    const init = async () => {
-      try {
-        // 최신 회차 조회 (sync는 SyncInitializer에서 처리)
-        const drawRes = await fetch('/api/lotto/draws?limit=1')
-        if (drawRes.ok) {
-          const draws = await drawRes.json()
-          if (draws?.[0]?.numbers) setDraw(draws[0])
-        }
-      } catch {}
-      setLoadingDraw(false)
-    }
-    init()
-  }, [])
+  // 최신 당첨번호 — staleTime 1시간 (실제 추첨은 주 1회)
+  const { data: draw, isLoading: loadingDraw } = useQuery<DrawInfo | null>({
+    queryKey: ['latest-draw'],
+    queryFn: async () => {
+      const res = await fetch('/api/lotto/draws?limit=1')
+      if (!res.ok) return null
+      const draws = await res.json()
+      return draws?.[0]?.numbers ? draws[0] : null
+    },
+    staleTime: 60 * 60 * 1000,
+    gcTime: 2 * 60 * 60 * 1000,
+  })
 
   const { data: sajuProfile } = useQuery<SajuProfile | null>({
     queryKey: ['saju-profile-home'],
@@ -714,6 +710,7 @@ export default function HomePage() {
       return res.json()
     },
     enabled: !!session,
+    staleTime: 5 * 60 * 1000,
   })
 
   const { data: savedList, isLoading: loadingList } = useQuery<SavedNumber[]>({
@@ -725,6 +722,7 @@ export default function HomePage() {
       return Array.isArray(data) ? data.slice(0, 10) : []
     },
     enabled: !!session,
+    staleTime: 60 * 1000,
   })
 
   const { data: manualList, isLoading: loadingManual } = useQuery<SavedNumber[]>({
@@ -736,6 +734,7 @@ export default function HomePage() {
       return Array.isArray(data) ? data.slice(0, 20) : []
     },
     enabled: !!session,
+    staleTime: 60 * 1000,
   })
 
   // 슬롯머신 시작

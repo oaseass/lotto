@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
 
     const { round, sets } = parsed
 
-    // 당첨번호 조회 (DB 우선, 없으면 API)
+    // 당첨번호 조회 (DB 우선, 없으면 API) — upsert로 race condition 방지
     let draw = await prisma.lottoDraw.findUnique({ where: { round } })
     if (!draw) {
       const apiData = await fetchLottoDraw(round)
@@ -33,7 +33,12 @@ export async function POST(req: NextRequest) {
           error: `${round}회차 당첨번호가 아직 발표되지 않았습니다`,
         }, { status: 404 })
       }
-      draw = await prisma.lottoDraw.create({ data: parseDraw(apiData) })
+      const parseData = parseDraw(apiData)
+      draw = await prisma.lottoDraw.upsert({
+        where: { round },
+        update: {},
+        create: parseData,
+      })
     }
 
     // 당첨 결과 계산
@@ -43,17 +48,21 @@ export async function POST(req: NextRequest) {
     // 원본 스캔 번호를 결과에 포함
     const setsWithNumbers = result.map((r, i) => ({ ...r, numbers: sets[i] }))
 
-    // 로그인 사용자면 이력 저장
+    // 로그인 사용자면 이력 저장 (실패해도 스캔 결과는 반환)
     if (session?.user?.id) {
-      await prisma.qrScan.create({
-        data: {
-          userId: session.user.id,
-          round,
-          scannedNumbers: sets.map((nums, i) => ({ set: i + 1, numbers: nums })),
-          result,
-          totalPrize: BigInt(totalPrize),
-        },
-      })
+      try {
+        await prisma.qrScan.create({
+          data: {
+            userId: session.user.id,
+            round,
+            scannedNumbers: sets.map((nums, i) => ({ set: i + 1, numbers: nums })),
+            result,
+            totalPrize: BigInt(totalPrize),
+          },
+        })
+      } catch (e) {
+        console.error('QrScan 저장 실패:', e)
+      }
     }
 
     const vParam = new URL(qrData).searchParams.get('v') ?? ''

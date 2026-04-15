@@ -21,10 +21,14 @@ export async function GET(req: NextRequest) {
     if (round) {
       const draw = await prisma.lottoDraw.findUnique({ where: { round: parseInt(round, 10) } })
       if (!draw) return NextResponse.json({ error: '해당 회차를 찾을 수 없습니다' }, { status: 404 })
-      return NextResponse.json(serializeDraw(draw))
+      return NextResponse.json(serializeDraw(draw), {
+        headers: { 'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400' },
+      })
     } else {
       const draws = await prisma.lottoDraw.findMany({ orderBy: { round: 'desc' }, take: limit })
-      return NextResponse.json(draws.map(serializeDraw))
+      return NextResponse.json(draws.map(serializeDraw), {
+        headers: { 'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400' },
+      })
     }
   } catch (error) {
     console.error('draws route error:', error)

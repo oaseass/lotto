@@ -31,13 +31,17 @@ export function LottoBall({
   const px = SIZES[size]
   return (
     <span
-      className={`lotto-ball ${getBallClass(number, isBonus)} ${animate ? 'ball-rolling' : ''}`}
+      className={`lotto-ball ${dimmed ? '' : getBallClass(number, isBonus)} ${animate ? 'ball-rolling' : ''}`}
       style={{
         width: px, height: px,
         fontSize: size === 'lg' ? 18 : size === 'md' ? 15 : 13,
-        outline: isMatched ? '2px solid #333' : undefined,
+        outline: isMatched ? '2.5px solid #333' : undefined,
         outlineOffset: isMatched ? 1 : undefined,
-        opacity: dimmed ? 0.4 : 1,
+        ...(dimmed ? {
+          background: '#e2e2e2',
+          color: '#aaa',
+          boxShadow: 'none',
+        } : {}),
       }}
     >
       {number}
@@ -64,6 +68,7 @@ export function LottoBallSet({
           number={num}
           size={size}
           isMatched={matchedNumbers.includes(num)}
+          dimmed={matchedNumbers.length > 0 && !matchedNumbers.includes(num)}
           animate={animate}
         />
       ))}
