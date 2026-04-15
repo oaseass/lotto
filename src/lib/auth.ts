@@ -7,11 +7,11 @@ import type { OAuthConfig } from 'next-auth/providers'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
-import { customFetch } from '@auth/core/lib/symbols'
+import { customFetch } from '@auth/core'
 
 // PKCE 없이 동작하는 커스텀 카카오 프로바이더
-function KakaoCustomProvider(): OAuthConfig<any> {
-  return {
+function KakaoCustomProvider(): any {
+  const provider: any = {
     id: 'kakao',
     name: 'Kakao',
     type: 'oauth',
@@ -56,6 +56,7 @@ function KakaoCustomProvider(): OAuthConfig<any> {
       }
     },
   }
+  return provider
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
