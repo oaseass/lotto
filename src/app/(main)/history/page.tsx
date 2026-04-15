@@ -441,6 +441,94 @@ function NumberStats() {
           })}
         </div>
       </div>
+
+      {/* ── 근접 기록 ── */}
+      {stats.matchStats && stats.matchStats.totalChecked > 0 && (
+        <CloseMatchSection matchStats={stats.matchStats} />
+      )}
+    </div>
+  )
+}
+
+// ── 근접 기록 대시보드 ─────────────────────────────────────
+function CloseMatchSection({ matchStats }: { matchStats: any }) {
+  const { totalChecked, pending, distribution, bestCount, avgCount, topNearMisses } = matchStats
+  const maxInDist = Math.max(...(Object.values(distribution) as number[]))
+
+  return (
+    <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', padding: '14px 16px' }}>
+      <p style={{ fontSize: 13, fontWeight: 700, color: '#333', marginBottom: 12 }}>
+        🎯 근접 기록
+        <span style={{ fontSize: 11, fontWeight: 500, color: '#888', marginLeft: 8 }}>
+          추첨 완료 {totalChecked}세트{pending > 0 ? ` · 대기 중 ${pending}세트` : ''}
+        </span>
+      </p>
+
+      {/* 요약 카드 */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        {[
+          { label: '최고 기록', value: `${bestCount}개 일치`, color: bestCount >= 4 ? '#dc1f1f' : bestCount >= 3 ? '#007bc3' : '#333' },
+          { label: '평균 일치', value: `${avgCount}개`, color: '#333' },
+          { label: '추첨 완료', value: `${totalChecked}세트`, color: '#129f97' },
+        ].map(({ label, value, color }) => (
+          <div key={label} style={{ flex: 1, textAlign: 'center', padding: '8px 4px', background: '#f7f7f7', borderRadius: 4 }}>
+            <p style={{ fontSize: 15, fontWeight: 900, color }}>{value}</p>
+            <p style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* 일치 개수 분포 바 */}
+      <p style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>일치 개수 분포</p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginBottom: 16 }}>
+        {([6, 5, 4, 3, 2, 1, 0] as number[]).map(count => {
+          const n = (distribution[count] || 0) as number
+          const pct = maxInDist > 0 ? Math.max(n > 0 ? 4 : 0, (n / maxInDist) * 100) : 0
+          const barColor = count >= 5 ? '#dc1f1f' : count === 4 ? '#e03f0e' : count === 3 ? '#e4a816' : count === 2 ? '#007bc3' : '#c8c8c8'
+          return (
+            <div key={count} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 11, color: '#888', width: 30, flexShrink: 0, textAlign: 'right' }}>{count}개</span>
+              <div style={{ flex: 1, height: 16, background: '#f0f0f0', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{ width: `${pct}%`, height: '100%', background: barColor, borderRadius: 3 }} />
+              </div>
+              <span style={{ fontSize: 11, color: '#555', width: 22, flexShrink: 0 }}>{n}</span>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* 상위 근접 기록 TOP 5 */}
+      {(topNearMisses as any[]).length > 0 && (
+        <>
+          <p style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>상위 근접 기록</p>
+          {(topNearMisses as any[]).slice(0, 5).map((entry: any) => (
+            <div key={entry.id} style={{
+              padding: '10px 12px', marginBottom: 8,
+              background: entry.matchCount >= 4 ? '#fff5f5' : entry.matchCount >= 3 ? '#f7fbff' : '#fafafa',
+              border: `1px solid ${entry.matchCount >= 4 ? '#ffd5d5' : entry.matchCount >= 3 ? '#c5dcf0' : '#ebebeb'}`,
+              borderRadius: 4,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <span style={{
+                  fontSize: 14, fontWeight: 900,
+                  color: entry.matchCount >= 5 ? '#dc1f1f' : entry.matchCount >= 4 ? '#e03f0e' : entry.matchCount >= 3 ? '#007bc3' : '#888',
+                }}>
+                  {entry.matchCount}개 일치
+                </span>
+                {entry.rank !== null && (
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, color: '#fff',
+                    background: RANK_COLORS[entry.rank - 1],
+                    padding: '1px 6px', borderRadius: 2,
+                  }}>{entry.rank}등</span>
+                )}
+                <span style={{ fontSize: 11, color: '#888', marginLeft: 'auto' }}>제{entry.drawRound}회</span>
+              </div>
+              <LottoBallSet numbers={entry.numbers} matchedNumbers={entry.matchedNumbers} size="sm" />
+            </div>
+          ))}
+        </>
+      )}
     </div>
   )
 }

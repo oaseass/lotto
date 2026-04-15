@@ -244,6 +244,128 @@ function getScoreComment(score: number): { title: string; message: string; emoji
   }
 }
 
+// ── 이번 달 운기 달력 ──────────────────────────────────────
+function MonthCalendar({ yongsin, iljuChar }: { yongsin: string; iljuChar: string }) {
+  const [viewMonth, setViewMonth] = useState(() => {
+    const d = new Date()
+    return new Date(d.getFullYear(), d.getMonth(), 1)
+  })
+  const [selected, setSelected] = useState<Date | null>(null)
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const year = viewMonth.getFullYear()
+  const month = viewMonth.getMonth()
+  const firstDow = (new Date(year, month, 1).getDay() + 6) % 7  // Mon=0
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+
+  const cells: (Date | null)[] = []
+  for (let i = 0; i < firstDow; i++) cells.push(null)
+  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d))
+
+  const selectedScore = selected ? getFortuneScore(yongsin, selected) : null
+  const selectedComment = selected && selectedScore !== null ? getScoreComment(selectedScore) : null
+
+  const bestDays: { day: number; score: number; dow: string }[] = []
+  const DOW = ['일', '월', '화', '수', '목', '금', '토']
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(year, month, d)
+    const score = getFortuneScore(yongsin, date)
+    if (score >= 75) bestDays.push({ day: d, score, dow: DOW[date.getDay()] })
+  }
+  bestDays.sort((a, b) => b.score - a.score)
+
+  return (
+    <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', padding: '16px', marginTop: 8 }}>
+      {/* 헤더 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <button onClick={() => setViewMonth(new Date(year, month - 1, 1))}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 8px', fontSize: 20, color: '#555' }}>‹</button>
+        <p style={{ fontSize: 14, fontWeight: 700, color: '#333' }}>
+          📅 {year}년 {month + 1}월 운기 달력
+        </p>
+        <button onClick={() => setViewMonth(new Date(year, month + 1, 1))}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 8px', fontSize: 20, color: '#555' }}>›</button>
+      </div>
+
+      {/* 요일 헤더 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 4 }}>
+        {['월','화','수','목','금','토','일'].map(d => (
+          <div key={d} style={{ textAlign: 'center', fontSize: 10, color: '#aaa', paddingBottom: 4 }}>{d}</div>
+        ))}
+      </div>
+
+      {/* 달력 그리드 */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+        {cells.map((date, i) => {
+          if (!date) return <div key={`e${i}`} />
+          const score = getFortuneScore(yongsin, date)
+          const isToday = date.getTime() === today.getTime()
+          const isSelected = selected?.getTime() === date.getTime()
+          const isBest = score >= 80
+          const bg = isSelected ? '#333' : score >= 80 ? '#dc1f1f' : score >= 65 ? '#007bc3' : score >= 50 ? '#e4a816' : '#e0e0e0'
+          const textColor = score >= 50 ? '#fff' : '#888'
+          return (
+            <button key={date.getDate()} onClick={() => setSelected(isSelected ? null : date)} style={{
+              height: 40, borderRadius: 4, background: bg, color: isSelected ? '#fff' : textColor,
+              border: isToday ? '2px solid #000' : '2px solid transparent',
+              cursor: 'pointer',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1,
+            }}>
+              <span style={{ fontSize: 12, fontWeight: isToday ? 900 : 500, lineHeight: 1 }}>{date.getDate()}</span>
+              {isBest && <span style={{ fontSize: 8, lineHeight: 1 }}>★</span>}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* 범례 */}
+      <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+        {[['#dc1f1f', '대길(80+)'], ['#007bc3', '중길(65+)'], ['#e4a816', '평길(50+)'], ['#e0e0e0', '흉(~49)']].map(([color, label]) => (
+          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <div style={{ width: 10, height: 10, borderRadius: 2, background: color }} />
+            <span style={{ fontSize: 10, color: '#888' }}>{label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* 선택된 날 상세 */}
+      {selected && selectedComment && (
+        <div style={{ background: '#f7f7f7', borderRadius: 4, padding: '10px 12px', marginTop: 10, border: '1px solid #e0e0e0' }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#333', marginBottom: 4 }}>
+            {selected.getMonth() + 1}월 {selected.getDate()}일 {DOW[selected.getDay()]}요일
+            <span style={{ fontSize: 12, color: '#888', fontWeight: 400, marginLeft: 8 }}>운기 {selectedScore}점</span>
+          </p>
+          <p style={{ fontSize: 12, color: '#555', lineHeight: 1.6 }}>
+            {selectedComment.emoji} {selectedComment.title} — {selectedComment.message}
+          </p>
+        </div>
+      )}
+
+      {/* 구매 추천일 */}
+      {bestDays.length > 0 && (
+        <div style={{ background: '#fff5e6', borderRadius: 4, padding: '10px 12px', marginTop: 10, border: '1px solid #f5a623' }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: '#e03f0e', marginBottom: 6 }}>
+            ★ {month + 1}월 구매 추천일
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {bestDays.slice(0, 6).map(({ day, score, dow }) => (
+              <span key={day} style={{
+                fontSize: 12, fontWeight: 600, color: '#fff',
+                background: score >= 80 ? '#dc1f1f' : '#007bc3',
+                padding: '3px 10px', borderRadius: 10,
+              }}>
+                {day}일({dow}) {score}점
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function FortunePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -508,6 +630,9 @@ export default function FortunePage() {
 
       {/* ── 오늘의 행운 정보 ── */}
       <div style={{ padding: '0 16px', marginTop: 8 }}><AdSlot /></div>
+
+      {/* ── 이번 달 운기 달력 ── */}
+      <MonthCalendar yongsin={primaryYongsin} iljuChar={iljuChar} />
       {primaryYongsin && (
         <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', padding: '16px', marginTop: 8 }}>
           <p style={{ fontSize: 13, fontWeight: 700, color: '#333', marginBottom: 12 }}>🍀 {dateLabel} 행운</p>

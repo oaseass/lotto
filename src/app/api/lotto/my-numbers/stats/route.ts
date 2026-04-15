@@ -89,8 +89,12 @@ export async function GET() {
 
   const drawByRound = new Map(draws.map(d => [d.round, d]))
 
-  // 4. 등위 계산
+  // 4. 등위 + 근접 기록 계산
   const rankSummary: Record<number, object[]> = { 1: [], 2: [], 3: [], 4: [], 5: [] }
+  const matchDist: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 }
+  const allMatched: object[] = []
+  let totalChecked = 0
+  let totalMatchSum = 0
 
   for (const entry of myNumbers) {
     const draw = entry.drawRound !== null
@@ -98,20 +102,45 @@ export async function GET() {
       : draws.find(d => d.drawDate >= entry.createdAt)
     if (!draw) continue
 
-    const rank = computeRank(entry.numbers, draw.numbers, draw.bonus)
-    if (rank === null) continue
+    totalChecked++
+    const matchedNumbers = entry.numbers.filter(n => draw.numbers.includes(n))
+    const matchCount = matchedNumbers.length
+    matchDist[matchCount] = (matchDist[matchCount] || 0) + 1
+    totalMatchSum += matchCount
 
-    rankSummary[rank].push({
+    const rank = computeRank(entry.numbers, draw.numbers, draw.bonus)
+    const entryData = {
       id: entry.id,
       numbers: entry.numbers,
+      matchCount,
+      matchedNumbers,
       drawRound: draw.round,
       drawDate: draw.drawDate.toISOString(),
       drawNumbers: draw.numbers,
       bonus: draw.bonus,
       createdAt: entry.createdAt.toISOString(),
       isManual: entry.isManual,
-    })
+      rank,
+    }
+
+    if (rank !== null) rankSummary[rank].push(entryData)
+    allMatched.push(entryData)
   }
 
-  return NextResponse.json({ total, autoCount, manualCount, topNumbers, rankSummary })
+  allMatched.sort((a: any, b: any) => b.matchCount - a.matchCount)
+  const bestCount = (allMatched[0] as any)?.matchCount ?? 0
+  const avgCount = totalChecked > 0
+    ? Math.round((totalMatchSum / totalChecked) * 10) / 10
+    : 0
+
+  const matchStats = {
+    totalChecked,
+    pending: myNumbers.length - totalChecked,
+    distribution: matchDist,
+    bestCount,
+    avgCount,
+    topNearMisses: allMatched.slice(0, 10),
+  }
+
+  return NextResponse.json({ total, autoCount, manualCount, topNumbers, rankSummary, matchStats })
 }
