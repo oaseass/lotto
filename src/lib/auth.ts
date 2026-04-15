@@ -3,14 +3,68 @@
 // ================================
 
 import NextAuth from 'next-auth'
+import type { OAuthConfig } from 'next-auth/providers'
 import CredentialsProvider from 'next-auth/providers/credentials'
-import KakaoProvider from 'next-auth/providers/kakao'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 
+// PKCE 없이 동작하는 커스텀 카카오 프로바이더
+function KakaoCustomProvider(): OAuthConfig<any> {
+  return {
+    id: 'kakao',
+    name: 'Kakao',
+    type: 'oauth',
+    authorization: {
+      url: 'https://kauth.kakao.com/oauth/authorize',
+      params: { scope: 'profile_nickname account_email', response_type: 'code' },
+    },
+    token: {
+      url: 'https://kauth.kakao.com/oauth/token',
+      async request({ params, provider }: any) {
+        // NextAuth v5 beta forces PKCE even with checks:['state']; do exchange manually
+        const body = new URLSearchParams({
+          grant_type: 'authorization_code',
+          code: params.code,
+          redirect_uri: provider.callbackUrl,
+          client_id: provider.clientId,
+          client_secret: provider.clientSecret,
+        })
+        const res = await fetch('https://kauth.kakao.com/oauth/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: body.toString(),
+        })
+        if (!res.ok) {
+          const text = await res.text()
+          console.error('[Kakao token] exchange failed:', res.status, text)
+          throw new Error(`Kakao token exchange failed: ${res.status}`)
+        }
+        const tokens = await res.json()
+        return { tokens }
+      },
+    },
+    userinfo: { url: 'https://kapi.kakao.com/v2/user/me' },
+    clientId: process.env.KAKAO_CLIENT_ID,
+    clientSecret: process.env.KAKAO_CLIENT_SECRET,
+    client: { token_endpoint_auth_method: 'client_secret_post' },
+    checks: ['state'],
+    profile(profile: any) {
+      return {
+        id: String(profile.id),
+        name: profile.kakao_account?.profile?.nickname ?? '카카오유저',
+        email: profile.kakao_account?.email ?? `kakao_${profile.id}@kakao.local`,
+        image: profile.kakao_account?.profile?.profile_image_url ?? null,
+      }
+    },
+  }
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  // PrismaAdapter는 OAuth 저장용이지만 JWT strategy와 충돌 가능
-  // 유저 관리는 /api/auth/register에서 직접 처리
+  secret: [
+    process.env.AUTH_SECRET!,
+    'change-me-to-a-random-32-char-string',
+  ],
+  debug: false,
   providers: [
     // 이메일+비번 로그인
     CredentialsProvider({
@@ -40,49 +94,93 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
       },
     }),
-    // 카카오 소셜 로그인 (CLIENT_ID 설정 시 활성화)
-    ...(process.env.KAKAO_CLIENT_ID ? [KakaoProvider({
-      clientId: process.env.KAKAO_CLIENT_ID,
-      clientSecret: process.env.KAKAO_CLIENT_SECRET!,
-    })] : []),
+    // 카카오 소셜 로그인
+    ...(process.env.KAKAO_CLIENT_ID ? [KakaoCustomProvider()] : []),
   ],
   session: { strategy: 'jwt' },
   pages: {
     signIn: '/login',
-    newUser: '/onboarding',
+    error: '/login',
+  },
+  cookies: {
+    state: {
+      name: 'authjs.state',
+      options: { httpOnly: true, sameSite: 'none', path: '/', secure: true },
+    },
+    sessionToken: {
+      name: 'authjs.session-token',
+      options: { httpOnly: true, sameSite: 'lax', path: '/', secure: true },
+    },
   },
   callbacks: {
-    async jwt({ token, user, trigger }) {
-      if (user) {
-        token.id = user.id
-        // 로그인 시 1회만 DB 조회 → JWT에 저장
-        const [dbUser, sajuProfile] = await Promise.all([
-          prisma.user.findUnique({
-            where: { id: user.id as string },
-            select: { isAdFree: true },
-          }),
-          prisma.sajuProfile.findUnique({
-            where: { userId: user.id as string },
-            select: { yongsin: true },
-          }),
-        ])
-        token.isAdFree = dbUser?.isAdFree ?? false
-        token.yongsin = sajuProfile?.yongsin ?? null
+    // 카카오 로그인 시 DB에 유저 upsert
+    async signIn({ user, account, profile }) {
+      if (account?.provider === 'kakao') {
+        try {
+          const kakaoProfile = profile as any
+          console.log('[Kakao signIn] profile keys:', Object.keys(kakaoProfile || {}))
+          const email = kakaoProfile?.kakao_account?.email
+            || kakaoProfile?.email
+            || `kakao_${kakaoProfile?.id}@kakao.local`
+          const nickname = kakaoProfile?.kakao_account?.profile?.nickname
+            || kakaoProfile?.name
+            || '카카오유저'
+
+          console.log('[Kakao signIn] email:', email, 'nickname:', nickname)
+
+          let dbUser = await prisma.user.findUnique({ where: { email } })
+          if (!dbUser) {
+            dbUser = await prisma.user.create({
+              data: { email, nickname, passwordHash: null },
+            })
+          }
+          user.id = dbUser.id
+          user.email = dbUser.email
+          user.name = dbUser.nickname
+          console.log('[Kakao signIn] success, userId:', dbUser.id)
+        } catch (err) {
+          console.error('[Kakao signIn] 실패:', err)
+          return false
+        }
       }
-      // 결제 완료 또는 사주 프로필 저장 후 session.update() 호출 시 재조회
-      if (trigger === 'update' && token.id) {
-        const [dbUser, sajuProfile] = await Promise.all([
-          prisma.user.findUnique({
-            where: { id: token.id as string },
-            select: { isAdFree: true },
-          }),
-          prisma.sajuProfile.findUnique({
-            where: { userId: token.id as string },
-            select: { yongsin: true },
-          }),
-        ])
-        token.isAdFree = dbUser?.isAdFree ?? false
-        token.yongsin = sajuProfile?.yongsin ?? null
+      return true
+    },
+
+    async jwt({ token, user, trigger }) {
+      try {
+        if (user) {
+          token.id = user.id
+          const [dbUser, sajuProfile] = await Promise.all([
+            prisma.user.findUnique({
+              where: { id: user.id as string },
+              select: { isAdFree: true },
+            }),
+            prisma.sajuProfile.findUnique({
+              where: { userId: user.id as string },
+              select: { yongsin: true },
+            }),
+          ])
+          token.isAdFree = dbUser?.isAdFree ?? false
+          token.yongsin = sajuProfile?.yongsin ?? null
+          token.hasSajuProfile = !!sajuProfile
+        }
+        if (trigger === 'update' && token.id) {
+          const [dbUser, sajuProfile] = await Promise.all([
+            prisma.user.findUnique({
+              where: { id: token.id as string },
+              select: { isAdFree: true },
+            }),
+            prisma.sajuProfile.findUnique({
+              where: { userId: token.id as string },
+              select: { yongsin: true },
+            }),
+          ])
+          token.isAdFree = dbUser?.isAdFree ?? false
+          token.yongsin = sajuProfile?.yongsin ?? null
+          token.hasSajuProfile = !!sajuProfile
+        }
+      } catch (err) {
+        console.error('[jwt callback] 실패:', err)
       }
       return token
     },
@@ -91,6 +189,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = token.id as string
         session.user.isAdFree = (token.isAdFree as boolean) ?? false
         session.user.yongsin = (token.yongsin as string | null) ?? null
+        session.user.hasSajuProfile = (token.hasSajuProfile as boolean) ?? false
       }
       return session
     },
