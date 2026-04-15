@@ -152,16 +152,15 @@ export function parseQrCode(qrData: string): {
 
     const sets: number[][] = []
 
-    // 형식 A: 각 게임이 q로 분리된 경우
+    // 형식 A: 각 게임이 q로 분리된 경우 (마지막 part에 인증코드 붙어있을 수 있음 → 앞 12자만 사용)
     for (let i = 1; i < parts.length; i++) {
-      const part = parts[i]
-      if (part.length === 12) {
-        const nums: number[] = []
-        for (let j = 0; j < 12; j += 2) {
-          nums.push(parseInt(part.substring(j, j + 2)))
-        }
-        if (nums.every(n => n >= 1 && n <= 45)) sets.push(nums)
+      const chunk = parts[i].substring(0, 12)
+      if (chunk.length < 12) continue
+      const nums: number[] = []
+      for (let j = 0; j < 12; j += 2) {
+        nums.push(parseInt(chunk.substring(j, j + 2)))
       }
+      if (nums.every(n => n >= 1 && n <= 45)) sets.push(nums)
     }
 
     // 형식 B: 게임 번호가 q 없이 연속으로 붙어있는 경우 (실제 동행복권 QR)

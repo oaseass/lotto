@@ -55,10 +55,11 @@ interface LottoBallSetProps {
   matchedNumbers?: number[]
   size?: 'sm' | 'md' | 'lg'
   animate?: boolean
+  checked?: boolean  // true이면 0개 일치여도 비매칭 볼 회색 처리
 }
 
 export function LottoBallSet({
-  numbers, bonus, matchedNumbers = [], size = 'md', animate = false,
+  numbers, bonus, matchedNumbers = [], size = 'md', animate = false, checked = false,
 }: LottoBallSetProps) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
@@ -68,7 +69,7 @@ export function LottoBallSet({
           number={num}
           size={size}
           isMatched={matchedNumbers.includes(num)}
-          dimmed={matchedNumbers.length > 0 && !matchedNumbers.includes(num)}
+          dimmed={(checked || matchedNumbers.length > 0) && !matchedNumbers.includes(num)}
           animate={animate}
         />
       ))}

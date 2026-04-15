@@ -57,13 +57,6 @@ const RANK_MSG: Record<number, { title: string; sub: string; emoji: string }> = 
 
 function formatPrize(n: number): string {
   if (n <= 0) return ''
-  if (n >= 100000000) {
-    const uk = Math.floor(n / 100000000)
-    const rest = Math.floor((n % 100000000) / 10000000)
-    return rest > 0 ? `${uk}억 ${rest}천만원` : `${uk}억원`
-  }
-  if (n >= 10000000) return `${Math.floor(n / 10000000)}천만원`
-  if (n >= 1000000) return `${Math.floor(n / 100000) / 10}백만원`
   return `${n.toLocaleString()}원`
 }
 
@@ -243,6 +236,7 @@ export default function CheckPage() {
                   <LottoBallSet
                     numbers={set.numbers || []}
                     matchedNumbers={set.matchedNumbers}
+                    checked={true}
                     size="sm"
                   />
                 </div>
