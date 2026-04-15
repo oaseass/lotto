@@ -59,18 +59,23 @@ export async function POST(req: NextRequest) {
     // 원본 스캔 번호를 결과에 포함
     const setsWithNumbers = resultWithPrize.map((r, i) => ({ ...r, numbers: sets[i] }))
 
-    // 로그인 사용자면 이력 저장 (실패해도 스캔 결과는 반환)
+    // 로그인 사용자면 이력 저장 (실패해도 스캔 결과는 반환, 같은 회차 중복 저장 방지)
     if (session?.user?.id) {
       try {
-        await prisma.qrScan.create({
-          data: {
-            userId: session.user.id,
-            round,
-            scannedNumbers: sets.map((nums, i) => ({ set: i + 1, numbers: nums })),
-            result: resultWithPrize,
-            totalPrize: BigInt(totalPrize),
-          },
+        const existing = await prisma.qrScan.findFirst({
+          where: { userId: session.user.id, round },
         })
+        if (!existing) {
+          await prisma.qrScan.create({
+            data: {
+              userId: session.user.id,
+              round,
+              scannedNumbers: sets.map((nums, i) => ({ set: i + 1, numbers: nums })),
+              result: resultWithPrize,
+              totalPrize: BigInt(totalPrize),
+            },
+          })
+        }
       } catch (e) {
         console.error('QrScan 저장 실패:', e)
       }
