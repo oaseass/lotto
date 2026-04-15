@@ -7,6 +7,7 @@ import type { OAuthConfig } from 'next-auth/providers'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
+import { customFetch } from '@auth/core/lib/symbols'
 
 // PKCE 없이 동작하는 커스텀 카카오 프로바이더
 function KakaoCustomProvider(): OAuthConfig<any> {
@@ -33,6 +34,19 @@ function KakaoCustomProvider(): OAuthConfig<any> {
     clientSecret: process.env.KAKAO_CLIENT_SECRET,
     client: { token_endpoint_auth_method: 'client_secret_post' },
     checks: ['state'],
+    [customFetch]: async (...args: Parameters<typeof fetch>) => {
+      const url = typeof args[0] === 'string' ? args[0] : (args[0] as Request).url
+      console.log('[KakaoFetch] →', url.split('?')[0])
+      try {
+        const resp = await fetch(...args)
+        const text = await resp.clone().text()
+        console.log('[KakaoFetch] ←', resp.status, text.slice(0, 300))
+        return resp
+      } catch (err: any) {
+        console.error('[KakaoFetch] ERROR:', err.message)
+        throw err
+      }
+    },
     profile(profile: any) {
       return {
         id: String(profile.id),
