@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { CHEONGAN_OHAENG, DAILY_FORTUNE_POOL, dailySeed, getDailyFortune } from '@/lib/saju/fortune'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { AdSlot } from '@/components/ui/AdSlot'
 
 interface SajuProfile {
@@ -257,24 +257,33 @@ function MonthCalendar({ yongsin, iljuChar }: { yongsin: string; iljuChar: strin
 
   const year = viewMonth.getFullYear()
   const month = viewMonth.getMonth()
-  const firstDow = (new Date(year, month, 1).getDay() + 6) % 7  // Mon=0
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
 
-  const cells: (Date | null)[] = []
-  for (let i = 0; i < firstDow; i++) cells.push(null)
-  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d))
+  // 월별 셀 + 점수 전체를 한 번만 계산 (month/yongsin이 바뀔 때만 재계산)
+  const { cells, bestDays, cellScores } = useMemo(() => {
+    const firstDow = (new Date(year, month, 1).getDay() + 6) % 7
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+    const DOW = ['일', '월', '화', '수', '목', '금', '토']
 
+    const cells: (Date | null)[] = []
+    for (let i = 0; i < firstDow; i++) cells.push(null)
+    for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d))
+
+    const cellScores: Map<number, number> = new Map()
+    const bestDays: { day: number; score: number; dow: string }[] = []
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = new Date(year, month, d)
+      const score = getFortuneScore(yongsin, date)
+      cellScores.set(d, score)
+      if (score >= 75) bestDays.push({ day: d, score, dow: DOW[date.getDay()] })
+    }
+    bestDays.sort((a, b) => b.score - a.score)
+    return { cells, bestDays, cellScores }
+  }, [year, month, yongsin])
+
+  const DOW = ['일', '월', '화', '수', '목', '금', '토']
   const selectedScore = selected ? getFortuneScore(yongsin, selected) : null
   const selectedComment = selected && selectedScore !== null ? getScoreComment(selectedScore) : null
-
-  const bestDays: { day: number; score: number; dow: string }[] = []
-  const DOW = ['일', '월', '화', '수', '목', '금', '토']
-  for (let d = 1; d <= daysInMonth; d++) {
-    const date = new Date(year, month, d)
-    const score = getFortuneScore(yongsin, date)
-    if (score >= 75) bestDays.push({ day: d, score, dow: DOW[date.getDay()] })
-  }
-  bestDays.sort((a, b) => b.score - a.score)
 
   return (
     <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', padding: '16px', marginTop: 8 }}>
@@ -300,7 +309,7 @@ function MonthCalendar({ yongsin, iljuChar }: { yongsin: string; iljuChar: strin
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
         {cells.map((date, i) => {
           if (!date) return <div key={`e${i}`} />
-          const score = getFortuneScore(yongsin, date)
+          const score = cellScores.get(date.getDate()) ?? 0
           const isToday = date.getTime() === today.getTime()
           const isSelected = selected?.getTime() === date.getTime()
           const isBest = score >= 80
@@ -383,13 +392,15 @@ export default function FortunePage() {
   const dateStr = `${targetDate.getFullYear()}년 ${targetDate.getMonth() + 1}월 ${targetDate.getDate()}일 (${dow})`
 
   const { data: profile, isLoading } = useQuery<SajuProfile | null>({
-    queryKey: ['saju-profile-fortune'],
+    queryKey: ['saju-profile'],
     queryFn: async () => {
       const res = await fetch('/api/saju/profile')
       if (!res.ok) return null
       return res.json()
     },
     enabled: !!session,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   })
 
   if (status === 'loading' || isLoading) {

@@ -71,11 +71,11 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} style={{ padding: '20px' }}>
             <div style={{ marginBottom: 10 }}>
               <label style={{ fontSize: 12, color: '#444', fontWeight: 500, display: 'block', marginBottom: 4 }}>이메일</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="이메일 주소" required style={inputStyle} />
+              <input type="email" name="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="이메일 주소" required style={inputStyle} />
             </div>
             <div style={{ marginBottom: 16 }}>
               <label style={{ fontSize: 12, color: '#444', fontWeight: 500, display: 'block', marginBottom: 4 }}>비밀번호</label>
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="비밀번호" required style={inputStyle} />
+              <input type="password" name="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} placeholder="비밀번호" required style={inputStyle} />
             </div>
 
             {error && (
@@ -120,12 +120,19 @@ export default function LoginPage() {
 
         <div style={{
           background: '#fff', borderTop: '1px solid #dcdcdc', borderBottom: '1px solid #dcdcdc',
-          padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16,
+          padding: '14px 20px',
         }}>
-          <span style={{ fontSize: 13, color: '#888' }}>아직 회원이 아니신가요?</span>
-          <Link href="/register" style={{ fontSize: 13, fontWeight: 600, color: '#007bc3', textDecoration: 'none' }}>
-            회원가입 →
-          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 10 }}>
+            <span style={{ fontSize: 13, color: '#888' }}>아직 회원이 아니신가요?</span>
+            <Link href="/register" style={{ fontSize: 13, fontWeight: 600, color: '#007bc3', textDecoration: 'none' }}>
+              회원가입 →
+            </Link>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 16 }}>
+            <Link href="/find-id" style={{ fontSize: 12, color: '#888', textDecoration: 'none' }}>아이디 찾기</Link>
+            <span style={{ fontSize: 12, color: '#dcdcdc' }}>|</span>
+            <Link href="/find-password" style={{ fontSize: 12, color: '#888', textDecoration: 'none' }}>비밀번호 찾기</Link>
+          </div>
         </div>
       </div>
     </div>

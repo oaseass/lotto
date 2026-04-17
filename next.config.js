@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['k.kakaocdn.net'],
+    remotePatterns: [{ protocol: 'https', hostname: 'k.kakaocdn.net' }],
   },
   // 서버 시작 시 instrumentation 실행 (크론 잡 초기화)
   experimental: {

@@ -10,7 +10,6 @@ interface ReadingResult {
   currentDaeun: string
   currentSeun: string
   sections: Record<string, string>
-  raw: string
 }
 
 interface Props {
@@ -20,14 +19,20 @@ interface Props {
 const SECTION_ICONS: Record<string, string> = {
   '성격과 재능': '🌟',
   '현재 운세': '🔮',
+  '직업과 진로': '💼',
   '재물과 기회': '💰',
+  '건강과 체질': '🍃',
+  '애정과 인연': '💞',
   '주의와 조언': '💡',
 }
 
 const SECTION_COLORS: Record<string, string> = {
   '성격과 재능': '#007bc3',
   '현재 운세': '#8f35c8',
+  '직업과 진로': '#3a6fc8',
   '재물과 기회': '#e4a816',
+  '건강과 체질': '#3aaa58',
+  '애정과 인연': '#e8437a',
   '주의와 조언': '#5bb544',
 }
 
@@ -73,7 +78,7 @@ export default function ReadingSheet({ onClose }: Props) {
     try {
       const res = await fetch('/api/saju/reading', { method: 'POST' })
       if (!res.ok) {
-        let msg = 'AI 통변 생성 실패'
+        let msg = 'AI 사주 풀이 생성 실패'
         try { const d = await res.json(); msg = d.error || msg } catch {}
         setError(msg)
         setStep('idle')
@@ -111,7 +116,7 @@ export default function ReadingSheet({ onClose }: Props) {
         }}>
           <div>
             <p style={{ fontSize: 16, fontWeight: 900, color: '#fff', marginBottom: 2 }}>
-              🔮 AI 사주 통변
+              🔮 AI 사주 풀이
             </p>
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>
               사주 데이터 기반으로 심층 분석합니다
@@ -137,7 +142,7 @@ export default function ReadingSheet({ onClose }: Props) {
               <p style={{ fontSize: 12, color: '#888', lineHeight: 1.7, marginBottom: 24 }}>
                 일주·오행·대운·세운을 종합하여<br/>
                 성격, 현재 운세, 재물운, 조언을<br/>
-                개인화된 통변으로 제공합니다
+                개인화된 사주 풀이로 제공합니다
               </p>
               {error && (
                 <p style={{
@@ -156,7 +161,7 @@ export default function ReadingSheet({ onClose }: Props) {
                   cursor: 'pointer',
                 }}
               >
-                {isAdFree ? '내 사주 통변 받기' : '광고 보고 통변 받기'}
+                {isAdFree ? '내 사주 풀이 받기' : '광고 보고 풀이 받기'}
               </button>
               {!isAdFree && (
                 <p style={{ fontSize: 11, color: '#bbb', marginTop: 10 }}>
@@ -173,7 +178,7 @@ export default function ReadingSheet({ onClose }: Props) {
                 잠시 광고를 확인해주세요
               </p>
               <p style={{ fontSize: 11, color: '#888', textAlign: 'center', marginBottom: 16 }}>
-                {countdown > 0 ? `${countdown}초 후 통변을 받으실 수 있습니다` : '준비되었습니다!'}
+                {countdown > 0 ? `${countdown}초 후 사주 풀이를 받으실 수 있습니다` : '준비되었습니다!'}
               </p>
 
               {/* 광고 영역 */}
@@ -215,7 +220,7 @@ export default function ReadingSheet({ onClose }: Props) {
                   transition: 'all 0.3s',
                 }}
               >
-                {countdown > 0 ? `${countdown}초 대기 중...` : '✨ 통변 받기'}
+                {countdown > 0 ? `${countdown}초 대기 중...` : '✨ 풀이 받기'}
               </button>
             </div>
           )}
@@ -260,8 +265,8 @@ export default function ReadingSheet({ onClose }: Props) {
                 </div>
               </div>
 
-              {/* 섹션별 통변 */}
-              {['성격과 재능', '현재 운세', '재물과 기회', '주의와 조언'].map(key => {
+              {/* 섹션별 풀이 */}
+              {['성격과 재능', '현재 운세', '직업과 진로', '재물과 기회', '건강과 체질', '애정과 인연', '주의와 조언'].map(key => {
                 const text = result.sections[key]
                 if (!text) return null
                 return (

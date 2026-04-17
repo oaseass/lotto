@@ -1,4 +1,5 @@
 {
+  "alias": ["lotto-two-dun.vercel.app"],
   "crons": [
     {
       "path": "/api/cron/update-lotto",

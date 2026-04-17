@@ -142,7 +142,7 @@ export default function MyPage() {
 
   return (
     <div>
-      {/* AI 사주 통변 시트 */}
+      {/* AI 사주 풀이 시트 */}
       {showReadingSheet && (
         <ReadingSheet onClose={() => setShowReadingSheet(false)} />
       )}
@@ -305,7 +305,7 @@ export default function MyPage() {
               </div>
             )}
 
-            {/* AI 사주 통변 버튼 */}
+            {/* AI 사주 풀이 버튼 */}
             <button
               onClick={() => setShowReadingSheet(true)}
               style={{
@@ -317,7 +317,7 @@ export default function MyPage() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
               }}
             >
-              🔮 AI 사주 통변 받기
+              🔮 AI 사주 풀이 받기
             </button>
           </div>
         )}

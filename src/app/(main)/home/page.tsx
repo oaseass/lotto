@@ -252,6 +252,8 @@ function SajuCard({ profile, onSetup, onEdit }: {
       return res.json()
     },
     enabled: !!profile?.ilju,
+    staleTime: 24 * 60 * 60 * 1000,
+    gcTime: 7 * 24 * 60 * 60 * 1000,
   })
 
   const currentDaeun = daeunData?.entries.find(e => e.isCurrentDaeun)
@@ -841,7 +843,7 @@ export default function HomePage() {
         />
       )}
 
-      {/* ── AI 사주 통변 시트 ── */}
+      {/* ── AI 사주 풀이 시트 ── */}
       {showReadingSheet && (
         <ReadingSheet onClose={() => setShowReadingSheet(false)} />
       )}
@@ -855,7 +857,7 @@ export default function HomePage() {
         />
       )}
 
-      {/* ── AI 사주 통변 버튼 ── */}
+      {/* ── AI 사주 풀이 버튼 ── */}
       {session && sajuProfile?.ilju && (
         <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', padding: '0 16px 12px' }}>
           <button
@@ -869,7 +871,7 @@ export default function HomePage() {
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
             }}
           >
-            🔮 AI 사주 통변 받기
+            🔮 AI 사주 풀이 받기
           </button>
         </div>
       )}

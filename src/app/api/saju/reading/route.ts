@@ -33,7 +33,7 @@ export async function POST() {
 
     return NextResponse.json(result)
   } catch (error) {
-    console.error('통변 오류:', error)
-    return NextResponse.json({ error: '통변 생성 실패' }, { status: 500 })
+    console.error('사주 풀이 오류:', error)
+    return NextResponse.json({ error: '사주 풀이 생성 실패' }, { status: 500 })
   }
 }

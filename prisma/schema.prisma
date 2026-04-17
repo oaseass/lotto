@@ -16,6 +16,7 @@ model User {
   nickname     String
   gender       String?   // M / F / N
   isAdFree     Boolean   @default(false)
+  isAdmin      Boolean   @default(false)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -73,7 +74,7 @@ model SajuProfile {
   birthYear    Int
   birthMonth   Int
   birthDay     Int
-  birthHour    Int?     // 0~23, 모를 경우 null
+  birthHour    Float?   // 0~23.5 (0.5 단위 = 30분), 모를 경우 null
   isLunar      Boolean  @default(false)
   isLeapMonth  Boolean  @default(false) // 윤달 여부
   // 변환된 양력 날짜 (사주 계산 기준)
@@ -105,7 +106,7 @@ model LottoNumber {
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   lottoDraw LottoDraw? @relation(fields: [drawRound], references: [round])
 
-  @@index([userId, createdAt(sort: Desc)])
+  @@index([userId, isManual, createdAt(sort: Desc)])
 }
 
 // 로또 당첨 번호 (매주 업데이트)
@@ -130,6 +131,8 @@ model LottoDraw {
   lottoNumbers LottoNumber[]
   qrScans      QrScan[]
   winStores    LottoDrawStore[]
+
+  @@index([drawDate])
 }
 
 // QR 스캔 이력

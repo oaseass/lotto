@@ -112,6 +112,8 @@ export async function GET(req: NextRequest) {
         round: true,
         totalPrize: true,
         scannedAt: true,
+        scannedNumbers: true,
+        result: true,
       },
     })
 

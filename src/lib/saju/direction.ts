@@ -1,10 +1,10 @@
 // 사주 오행별 길한 방위 매핑
 export const OHAENG_DIRECTION: Record<string, { directions: string[], degrees: number[] }> = {
-  목: { directions: ['동', '동남'], degrees: [0, 45] },      // 목(木) = 東
-  화: { directions: ['남', '남동'], degrees: [90, 135] },    // 화(火) = 南
+  목: { directions: ['동', '동남'], degrees: [90, 135] },     // 목(木) = 東 (90°=East, 135°=SE)
+  화: { directions: ['남', '남동'], degrees: [135, 180] },   // 화(火) = 南 (180°=South, 135°=SE)
   토: { directions: ['중앙'], degrees: [180] },              // 토(土) = 中央 (모든 방위)
-  금: { directions: ['서', '서북'], degrees: [270, 315] },   // 금(金) = 西
-  수: { directions: ['북', '북동'], degrees: [180, 225] },   // 수(水) = 北
+  금: { directions: ['서', '서북'], degrees: [270, 315] },  // 금(金) = 西 (270°=West, 315°=NW)
+  수: { directions: ['북', '북동'], degrees: [0, 45] },     // 수(水) = 北 (0°=North, 45°=NE)
 }
 
 // GPS 두 점 사이의 거리 계산 (Haversine formula) - km 단위

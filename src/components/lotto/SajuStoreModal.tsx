@@ -35,23 +35,22 @@ function buildReasonLines(store: StoreResult, weakElements: string[]): string[] 
   const lines: string[] = []
   const regionWeights = [50, 30, 20]
   const numWeights = [20, 12, 8]
+  const rankLabel = ['핵심 용신', '보완 기운', '3차 보완']
 
   const rIdx = weakElements.indexOf(store.regionOhaeng ?? '')
   if (rIdx >= 0) {
-    const rank = ['핵심', '보조', '3차'][rIdx]
     const pts = regionWeights[rIdx] ?? 10
-    lines.push(`🌏 방위 기운: ${store.regionOhaeng}(${OHAENG_HANJA[store.regionOhaeng!]}) — ${rank} 부족 기운과 일치 (+${pts}점)`)
+    lines.push(`🌏 방위 기운: ${store.regionOhaeng}(${OHAENG_HANJA[store.regionOhaeng!]}) — ${rankLabel[rIdx]} 방위 일치 (+${pts}점)`)
   } else if (store.regionOhaeng) {
-    lines.push(`🌏 방위 기운: ${store.regionOhaeng}(${OHAENG_HANJA[store.regionOhaeng]}) — 용신과 불일치`)
+    lines.push(`🌏 방위 기운: ${store.regionOhaeng}(${OHAENG_HANJA[store.regionOhaeng]}) — 용신 방위와 불일치`)
   }
 
   const nIdx = weakElements.indexOf(store.numOhaeng ?? '')
   if (nIdx >= 0) {
-    const rank = ['핵심', '보조', '3차'][nIdx]
     const pts = numWeights[nIdx] ?? 5
-    lines.push(`🔢 수리 기운: ${store.numOhaeng}(${OHAENG_HANJA[store.numOhaeng!]}) — ${rank} 부족 기운과 일치 (+${pts}점)`)
+    lines.push(`🔢 수리 기운: ${store.numOhaeng}(${OHAENG_HANJA[store.numOhaeng!]}) — ${rankLabel[nIdx]} 수리 일치 (+${pts}점)`)
   } else if (store.numOhaeng) {
-    lines.push(`🔢 수리 기운: ${store.numOhaeng}(${OHAENG_HANJA[store.numOhaeng]}) — 용신과 불일치`)
+    lines.push(`🔢 수리 기운: ${store.numOhaeng}(${OHAENG_HANJA[store.numOhaeng]}) — 용신 수리와 불일치`)
   }
 
   lines.push(`🏆 1등 당첨 ${store.winCount1st}회 배출 실적`)
@@ -180,14 +179,16 @@ export default function SajuStoreModal({ onClose, userOhaeng, isAdFree }: Props)
           <div>
             <p style={{ fontSize: 14, fontWeight: 700, color: '#6d28d9' }}>🧭 사주 맞춤 판매점 추천</p>
             <p style={{ fontSize: 11, color: '#888', marginTop: 2 }}>
-              {weakElements.map((w, i) => (
-                <span key={w}>
-                  <span style={{ color: OHAENG_COLOR[w] || '#6d28d9', fontWeight: 700 }}>
-                    {OHAENG_LABEL[w] || w}
-                  </span>
-                  {i < weakElements.length - 1 ? ' · ' : ''}
+              <span style={{ color: OHAENG_COLOR[primary] || '#6d28d9', fontWeight: 700 }}>
+                {OHAENG_LABEL[primary] || primary} 핵심 용신
+              </span>
+              {weakElements.length > 1 && (
+                <span style={{ color: '#aaa' }}>
+                  {' · '}
+                  {weakElements.slice(1).map(w => OHAENG_LABEL[w] || w).join(' · ')} 보완
                 </span>
-              ))} 기운이 닿는 곳을 찾아드립니다
+              )}
+              {' 기운이 닿는 곳을 찾아드립니다'}
             </p>
           </div>
           <button onClick={onClose} style={{
@@ -313,7 +314,7 @@ export default function SajuStoreModal({ onClose, userOhaeng, isAdFree }: Props)
             <div style={{ fontSize: 40, marginBottom: 14 }}>🔮</div>
             <p style={{ fontSize: 13, fontWeight: 600, color: '#6d28d9', marginBottom: 6 }}>운명의 실을 잇는 중...</p>
             <p style={{ fontSize: 12, color: '#888' }}>
-              {weakElements.map(w => OHAENG_LABEL[w]).join(' · ')} 기운이 닿는 곳을 찾고 있습니다
+              {OHAENG_LABEL[primary] || primary} 핵심 용신 기운이 닿는 곳을 찾고 있습니다
             </p>
           </div>
         )}
@@ -331,8 +332,11 @@ export default function SajuStoreModal({ onClose, userOhaeng, isAdFree }: Props)
             ) : (
               <>
                 <p style={{ fontSize: 12, color: '#888', marginBottom: 14, textAlign: 'center' }}>
-                  <strong style={{ color: '#6d28d9' }}>{weakElements.map(w => OHAENG_LABEL[w]).join(' · ')}</strong> 부족 기운을<br/>
-                  가장 잘 채워줄 판매점 {stores.length}곳을 점지했습니다
+                  <strong style={{ color: OHAENG_COLOR[primary] || '#6d28d9' }}>{OHAENG_LABEL[primary] || primary} 핵심 용신</strong>
+                  {weakElements.length > 1 && (
+                    <span> · {weakElements.slice(1).map(w => OHAENG_LABEL[w] || w).join(' · ')} 보완</span>
+                  )}
+                  <br/>기운을 기준으로 가장 잘 맞는 판매점 {stores.length}곳을 점지했습니다
                 </p>
 
                 {stores.map((store, i) => {
@@ -385,7 +389,7 @@ export default function SajuStoreModal({ onClose, userOhaeng, isAdFree }: Props)
                                   background: OHAENG_COLOR[w] || '#6d28d9',
                                   color: '#fff', padding: '2px 7px', borderRadius: 10,
                                 }}>
-                                  🌏 {idx === 0 ? '핵심' : idx === 1 ? '보조' : '3차'} 방위 일치
+                              🌏 {idx === 0 ? '핵심 용신 방위' : idx === 1 ? '보완 기운 방위' : '3차 기운 방위'}
                                 </span>
                               )
                             ))}
@@ -396,7 +400,7 @@ export default function SajuStoreModal({ onClose, userOhaeng, isAdFree }: Props)
                                   background: '#6d28d9', color: '#fff',
                                   padding: '2px 7px', borderRadius: 10,
                                 }}>
-                                  ✨ {idx === 0 ? '핵심' : idx === 1 ? '보조' : '3차'} 수리 일치
+                              ✨ {idx === 0 ? '핵심 용신 수리' : idx === 1 ? '보완 기운 수리' : '3차 기운 수리'}
                                 </span>
                               )
                             ))}

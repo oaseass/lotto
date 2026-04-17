@@ -21,15 +21,24 @@ export async function GET(req: NextRequest) {
     const sm = profile.solarMonth ?? profile.birthMonth
     const sd = profile.solarDay ?? profile.birthDay
 
-    const cheonjigan = calculateSaju(sy, sm, sd, profile.birthHour)
+    // 저장된 cheonjigan 재사용 — calculateSaju 재실행 비용 절감
+    const stored = profile.cheonjigan as any
+    let monthPillar: any, yearPillar: any
+    if (stored?.month && stored?.year) {
+      monthPillar = stored.month
+      yearPillar = stored.year
+    } else {
+      const cj = calculateSaju(sy, sm, sd, profile.birthHour)
+      monthPillar = cj.month
+      yearPillar = cj.year
+    }
 
-    // gender: User 모델에서 가져옴
-    const genderRaw = profile.user.gender
-    const gender: 'M' | 'F' = genderRaw === 'F' ? 'F' : 'M'
+    const gender: 'M' | 'F' = profile.user.gender === 'F' ? 'F' : 'M'
+    const result = calculateDaeun(sy, sm, sd, gender, monthPillar, yearPillar)
 
-    const result = calculateDaeun(sy, sm, sd, gender, cheonjigan.month, cheonjigan.year)
-
-    return NextResponse.json(result)
+    return NextResponse.json(result, {
+      headers: { 'Cache-Control': 'private, max-age=86400, stale-while-revalidate=604800' },
+    })
   } catch (error) {
     console.error('대운 계산 오류:', error)
     return NextResponse.json({ error: '계산 실패' }, { status: 500 })

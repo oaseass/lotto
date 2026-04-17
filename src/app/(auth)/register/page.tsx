@@ -32,8 +32,8 @@ export default function RegisterPage() {
       return
     }
 
-    if (password.length < 6) {
-      setError('비밀번호는 6자 이상이어야 합니다')
+    if (password.length < 8) {
+      setError('비밀번호는 8자 이상이어야 합니다')
       return
     }
 
@@ -68,7 +68,7 @@ export default function RegisterPage() {
             birthYear: parseInt(birthYear),
             birthMonth: parseInt(birthMonth),
             birthDay: parseInt(birthDay),
-            birthHour: hour + (minute === 30 ? 0.5 : 0),
+            birthHour: hour + (minute >= 30 ? 0.5 : 0),
             isLunar,
           },
         }),
@@ -129,6 +129,31 @@ export default function RegisterPage() {
         <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', padding: '20px', marginBottom: 8 }}>
           {step === 'basic' ? (
             <form onSubmit={handleBasicSubmit}>
+
+              {/* 카카오 간편가입 */}
+              <button
+                type="button"
+                onClick={() => signIn('kakao', { callbackUrl: '/home' })}
+                style={{
+                  width: '100%', height: 44,
+                  background: '#FEE500', border: 'none',
+                  borderRadius: 4, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  fontSize: 14, fontWeight: 700, color: '#191919',
+                  marginBottom: 16,
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="#191919">
+                  <path d="M12 3C6.477 3 2 6.477 2 11c0 2.9 1.573 5.453 3.965 7.028L5 21l3.357-1.763C9.396 19.71 10.67 20 12 20c5.523 0 10-3.477 10-9S17.523 3 12 3z"/>
+                </svg>
+                카카오로 간편가입
+              </button>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                <div style={{ flex: 1, height: 1, background: '#e0e0e0' }} />
+                <span style={{ fontSize: 11, color: '#aaa', whiteSpace: 'nowrap' }}>또는 이메일로 가입</span>
+                <div style={{ flex: 1, height: 1, background: '#e0e0e0' }} />
+              </div>
               <div style={{ marginBottom: 10 }}>
                 <label style={{ fontSize: 12, color: '#444', fontWeight: 500, display: 'block', marginBottom: 4 }}>이름 *</label>
                 <input type="text" value={nickname} onChange={e => setNickname(e.target.value)} placeholder="이름" required style={inputStyle} />
@@ -160,7 +185,7 @@ export default function RegisterPage() {
               </div>
               <div style={{ marginBottom: 20 }}>
                 <label style={{ fontSize: 12, color: '#444', fontWeight: 500, display: 'block', marginBottom: 4 }}>비밀번호 *</label>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="비밀번호 (6자 이상)" required minLength={6} style={inputStyle} />
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="비밀번호 (8자 이상)" required minLength={8} style={inputStyle} />
               </div>
 
               {error && (

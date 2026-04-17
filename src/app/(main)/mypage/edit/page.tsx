@@ -144,7 +144,7 @@ export default function EditProfilePage() {
           birthYear: parseInt(birthYear),
           birthMonth: parseInt(birthMonth),
           birthDay: parseInt(birthDay),
-          birthHour: hour + (minute === 30 ? 0.5 : 0), // 시간 + 분(30분이면 0.5)
+          birthHour: hour + (minute >= 30 ? 0.5 : 0),
           isLunar,
           isLeapMonth,
         }),

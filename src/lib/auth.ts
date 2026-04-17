@@ -96,15 +96,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (account?.provider === 'kakao') {
         try {
           const kakaoProfile = profile as any
-          console.log('[Kakao signIn] profile keys:', Object.keys(kakaoProfile || {}))
           const email = kakaoProfile?.kakao_account?.email
             || kakaoProfile?.email
             || `kakao_${kakaoProfile?.id}@kakao.local`
           const nickname = kakaoProfile?.kakao_account?.profile?.nickname
             || kakaoProfile?.name
             || '카카오유저'
-
-          console.log('[Kakao signIn] email:', email, 'nickname:', nickname)
 
           let dbUser = await prisma.user.findUnique({ where: { email } })
           if (!dbUser) {
@@ -115,7 +112,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           user.id = dbUser.id
           user.email = dbUser.email
           user.name = dbUser.nickname
-          console.log('[Kakao signIn] success, userId:', dbUser.id)
         } catch (err) {
           console.error('[Kakao signIn] 실패:', err)
           return false
@@ -131,7 +127,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const [dbUser, sajuProfile] = await Promise.all([
             prisma.user.findUnique({
               where: { id: user.id as string },
-              select: { isAdFree: true },
+              select: { isAdFree: true, isAdmin: true },
             }),
             prisma.sajuProfile.findUnique({
               where: { userId: user.id as string },
@@ -139,6 +135,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             }),
           ])
           token.isAdFree = dbUser?.isAdFree ?? false
+          token.isAdmin = dbUser?.isAdmin ?? false
           token.yongsin = sajuProfile?.yongsin ?? null
           token.hasSajuProfile = !!sajuProfile
         }
@@ -146,7 +143,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const [dbUser, sajuProfile] = await Promise.all([
             prisma.user.findUnique({
               where: { id: token.id as string },
-              select: { isAdFree: true },
+              select: { isAdFree: true, isAdmin: true },
             }),
             prisma.sajuProfile.findUnique({
               where: { userId: token.id as string },
@@ -154,6 +151,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             }),
           ])
           token.isAdFree = dbUser?.isAdFree ?? false
+          token.isAdmin = dbUser?.isAdmin ?? false
           token.yongsin = sajuProfile?.yongsin ?? null
           token.hasSajuProfile = !!sajuProfile
         }
@@ -166,6 +164,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (token.id) {
         session.user.id = token.id as string
         session.user.isAdFree = (token.isAdFree as boolean) ?? false
+        session.user.isAdmin = (token.isAdmin as boolean) ?? false
         session.user.yongsin = (token.yongsin as string | null) ?? null
         session.user.hasSajuProfile = (token.hasSajuProfile as boolean) ?? false
       }

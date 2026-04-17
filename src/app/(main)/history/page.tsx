@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
@@ -203,11 +203,17 @@ function Chip({ label, active, onClick }: { label: string; active: boolean; onCl
 }
 
 // ── 저장 번호 ──────────────────────────────────────────────
+const PAGE_SIZE = 10
+
 function SavedNumbers() {
   const [filterYear, setFilterYear] = useState<number | null>(null)
   const [filterMonth, setFilterMonth] = useState<number | null>(null)
   const [filterType, setFilterType] = useState<string>('all')
   const [quickPeriod, setQuickPeriod] = useState<QuickPeriod>(null)
+  const [page, setPage] = useState(1)
+
+  // 필터 바뀌면 첫 페이지로
+  useEffect(() => { setPage(1) }, [filterYear, filterMonth, filterType, quickPeriod])
 
   const { data, isLoading } = useQuery({
     queryKey: ['savedNumbers'],
@@ -215,6 +221,7 @@ function SavedNumbers() {
       const res = await fetch('/api/lotto/my-numbers')
       return res.json()
     },
+    staleTime: 60 * 1000,
   })
 
   if (isLoading) return <LoadingRows />
@@ -226,7 +233,6 @@ function SavedNumbers() {
   const cutoff = (months: number) => { const d = new Date(now); d.setMonth(d.getMonth() - months); return d }
   const thisYearStart = new Date(now.getFullYear(), 0, 1)
 
-  // 사용 가능한 년도/월 추출
   const years: number[] = Array.from(
     new Set(data.map((d: any) => new Date(d.createdAt).getFullYear()))
   ).sort((a: any, b: any) => b - a) as number[]
@@ -241,22 +247,21 @@ function SavedNumbers() {
       ).sort((a: any, b: any) => a - b) as number[]
     : []
 
-  // 필터 적용
   const filtered = data.filter((item: any) => {
     const d = new Date(item.createdAt)
-    // 빠른 기간
     if (quickPeriod === '1m' && d < cutoff(1)) return false
     if (quickPeriod === '3m' && d < cutoff(3)) return false
     if (quickPeriod === '6m' && d < cutoff(6)) return false
     if (quickPeriod === 'this_year' && d < thisYearStart) return false
-    // 년/월
     if (!quickPeriod && filterYear && d.getFullYear() !== filterYear) return false
     if (!quickPeriod && filterMonth && d.getMonth() + 1 !== filterMonth) return false
-    // 타입
     if (filterType === 'auto' && item.isManual) return false
     if (filterType === 'manual' && !item.isManual) return false
     return true
   })
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
+  const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   return (
     <div>
@@ -278,28 +283,68 @@ function SavedNumbers() {
       {filtered.length === 0 ? (
         <EmptyState message="해당 조건의 번호가 없어요" />
       ) : (
-        filtered.map((item: any) => (
-          <div key={item.id} style={{
-            background: '#fff',
-            borderBottom: '1px solid #f0f0f0',
-            padding: '12px 16px',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <span style={{ fontSize: 12, color: '#888' }}>
-                {item.drawRound ? `${item.drawRound}회차` : '회차 미지정'}
-                {' · '}
-                {new Date(item.createdAt).toLocaleDateString('ko-KR')}
-              </span>
-              <span style={{
-                fontSize: 11, fontWeight: 600,
-                color: item.isManual ? '#e4a816' : '#007bc3',
-              }}>
-                {item.isManual ? '수동' : '추천'}
-              </span>
+        <>
+          {paged.map((item: any) => (
+            <div key={item.id} style={{
+              background: '#fff',
+              borderBottom: '1px solid #f0f0f0',
+              padding: '12px 16px',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <span style={{ fontSize: 12, color: '#888' }}>
+                  {item.drawRound ? `${item.drawRound}회차` : '회차 미지정'}
+                  {' · '}
+                  {new Date(item.createdAt).toLocaleDateString('ko-KR')}
+                </span>
+                <span style={{
+                  fontSize: 11, fontWeight: 600,
+                  color: item.isManual ? '#e4a816' : '#007bc3',
+                }}>
+                  {item.isManual ? '수동' : '추천'}
+                </span>
+              </div>
+              <LottoBallSet numbers={item.numbers} size="sm" />
             </div>
-            <LottoBallSet numbers={item.numbers} size="sm" />
-          </div>
-        ))
+          ))}
+
+          {/* 페이지네이션 */}
+          {totalPages > 1 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16,
+              padding: '12px 16px', background: '#fff', borderBottom: '1px solid #f0f0f0',
+            }}>
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                style={{
+                  width: 32, height: 32, borderRadius: 4,
+                  background: page === 1 ? '#f5f5f5' : '#129f97',
+                  color: page === 1 ? '#ccc' : '#fff',
+                  border: 'none', cursor: page === 1 ? 'default' : 'pointer',
+                  fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >‹</button>
+              <span style={{ fontSize: 13, color: '#555' }}>
+                <span style={{ fontWeight: 700, color: '#333' }}>{page}</span>
+                {' / '}{totalPages}
+                <span style={{ fontSize: 11, color: '#aaa', marginLeft: 8 }}>
+                  {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filtered.length)}
+                </span>
+              </span>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                style={{
+                  width: 32, height: 32, borderRadius: 4,
+                  background: page === totalPages ? '#f5f5f5' : '#129f97',
+                  color: page === totalPages ? '#ccc' : '#fff',
+                  border: 'none', cursor: page === totalPages ? 'default' : 'pointer',
+                  fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >›</button>
+            </div>
+          )}
+        </>
       )}
 
       <NumberStats />
@@ -323,6 +368,8 @@ function NumberStats() {
       if (!res.ok) throw new Error('stats fetch failed')
       return res.json()
     },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   })
 
   if (isLoading) return (
@@ -534,11 +581,163 @@ function CloseMatchSection({ matchStats }: { matchStats: any }) {
 }
 
 // ── 스캔 이력 ──────────────────────────────────────────────
+function ScanDetailModal({ scan, onClose }: { scan: any; onClose: () => void }) {
+  const { data: draw } = useQuery({
+    queryKey: ['draw-detail', scan.round],
+    queryFn: async () => {
+      const res = await fetch(`/api/lotto/draws?round=${scan.round}`)
+      if (!res.ok) return null
+      return res.json()
+    },
+    staleTime: Infinity,
+  })
+
+  const winNums: number[] = draw
+    ? [draw.num1, draw.num2, draw.num3, draw.num4, draw.num5, draw.num6]
+    : []
+  const bonus: number = draw?.bonusNum ?? 0
+
+  const scannedSets: { set: number; numbers: number[] }[] = Array.isArray(scan.scannedNumbers)
+    ? scan.scannedNumbers : []
+  const results: { set: number; rank: number; prize: number }[] = Array.isArray(scan.result)
+    ? scan.result : []
+
+  const rankLabel: Record<number, string> = { 1: '1등', 2: '2등', 3: '3등', 4: '4등', 5: '5등' }
+  const rankBg: Record<number, string> = {
+    1: '#dc1f1f', 2: '#e4a816', 3: '#e4a816', 4: '#1994da', 5: '#888',
+  }
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 400,
+        background: 'rgba(0,0,0,0.65)',
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+      }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div style={{
+        width: '100%', maxWidth: 480,
+        borderRadius: '16px 16px 0 0',
+        background: '#fff',
+        maxHeight: '85vh',
+        display: 'flex', flexDirection: 'column',
+        overflow: 'hidden',
+      }}>
+        {/* 헤더 */}
+        <div style={{
+          padding: '14px 16px 12px',
+          borderBottom: '1px solid #f0f0f0',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          flexShrink: 0,
+        }}>
+          <div>
+            <p style={{ fontSize: 15, fontWeight: 700, color: '#333' }}>
+              🎰 {scan.round}회차 상세 결과
+            </p>
+            <p style={{ fontSize: 11, color: '#888', marginTop: 2 }}>
+              스캔일: {new Date(scan.scannedAt).toLocaleDateString('ko-KR')}
+            </p>
+          </div>
+          <button onClick={onClose} style={{
+            width: 28, height: 28, borderRadius: '50%',
+            background: '#f5f5f5', border: 'none',
+            fontSize: 14, cursor: 'pointer', color: '#555',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>✕</button>
+        </div>
+
+        <div style={{ overflowY: 'auto', flex: 1, padding: '14px 16px' }}>
+          {/* 당첨번호 */}
+          <div style={{
+            background: '#f9f9ff', borderRadius: 10,
+            padding: '12px 14px', marginBottom: 14,
+          }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#555', marginBottom: 8 }}>
+              🏆 {scan.round}회차 당첨번호
+            </p>
+            {draw ? (
+              <LottoBallSet numbers={winNums} bonus={bonus} size="sm" />
+            ) : (
+              <p style={{ fontSize: 12, color: '#aaa' }}>불러오는 중...</p>
+            )}
+          </div>
+
+          {/* 세트별 결과 */}
+          {scannedSets.length === 0 ? (
+            <p style={{ fontSize: 12, color: '#aaa', textAlign: 'center', padding: '20px 0' }}>
+              번호 정보가 없습니다
+            </p>
+          ) : (
+            scannedSets.map(({ set, numbers }) => {
+              const res = results.find(r => r.set === set)
+              const matchedNums = winNums.length > 0
+                ? numbers.filter(n => winNums.includes(n))
+                : []
+              const isWin = res && res.rank >= 1 && res.rank <= 5
+
+              return (
+                <div key={set} style={{
+                  background: '#fff',
+                  border: `1.5px solid ${isWin ? '#ffd5d5' : '#f0f0f0'}`,
+                  borderRadius: 10, padding: '11px 12px', marginBottom: 8,
+                }}>
+                  <div style={{
+                    display: 'flex', alignItems: 'center',
+                    justifyContent: 'space-between', marginBottom: 7,
+                  }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#555' }}>
+                      {String.fromCharCode(64 + set)}세트
+                    </span>
+                    {res ? (
+                      res.rank >= 1 && res.rank <= 5 ? (
+                        <span style={{
+                          fontSize: 11, fontWeight: 700, color: '#fff',
+                          background: rankBg[res.rank],
+                          padding: '2px 8px', borderRadius: 10,
+                        }}>
+                          {rankLabel[res.rank]} · ₩{Number(res.prize).toLocaleString()}
+                        </span>
+                      ) : (
+                        <span style={{
+                          fontSize: 11, color: '#aaa',
+                          background: '#f5f5f5', border: '1px solid #e0e0e0',
+                          padding: '2px 8px', borderRadius: 10,
+                        }}>낙첨</span>
+                      )
+                    ) : null}
+                  </div>
+                  <LottoBallSet numbers={numbers} matchedNumbers={matchedNums} size="sm" />
+                </div>
+              )
+            })
+          )}
+
+          {/* 합계 */}
+          {Number(scan.totalPrize) > 0 && (
+            <div style={{
+              background: '#fff5f5', border: '1px solid #ffd5d5',
+              borderRadius: 8, padding: '10px 14px',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#666' }}>총 당첨금</span>
+              <span style={{ fontSize: 15, fontWeight: 700, color: '#dc1f1f' }}>
+                ₩{Number(scan.totalPrize).toLocaleString()}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ScanHistory() {
   const [filterYear, setFilterYear] = useState<number | null>(null)
   const [filterMonth, setFilterMonth] = useState<number | null>(null)
   const [quickPeriod, setQuickPeriod] = useState<QuickPeriod>(null)
   const [filterResult, setFilterResult] = useState<string>('all')
+  const [selectedScan, setSelectedScan] = useState<any>(null)
 
   const { data, isLoading } = useQuery({
     queryKey: ['scanHistory'],
@@ -546,6 +745,7 @@ function ScanHistory() {
       const res = await fetch('/api/qr/scan')
       return res.json()
     },
+    staleTime: 60 * 1000,
   })
 
   if (isLoading) return <LoadingRows />
@@ -633,11 +833,14 @@ function ScanHistory() {
         <EmptyState message="해당 조건의 스캔 이력이 없어요" />
       ) : (
         filtered.map((scan: any) => (
-          <div key={scan.id} style={{
-            background: '#fff', borderBottom: '1px solid #f0f0f0',
-            padding: '12px 16px',
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          }}>
+          <div key={scan.id}
+            onClick={() => setSelectedScan(scan)}
+            style={{
+              background: '#fff', borderBottom: '1px solid #f0f0f0',
+              padding: '12px 16px',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              cursor: 'pointer',
+            }}>
             <div>
               <p style={{ fontSize: 14, fontWeight: 600, color: '#333', marginBottom: 3 }}>
                 {scan.round}회차
@@ -646,21 +849,27 @@ function ScanHistory() {
                 {new Date(scan.scannedAt).toLocaleDateString('ko-KR')}
               </p>
             </div>
-            {Number(scan.totalPrize) > 0 ? (
-              <span style={{ fontSize: 13, fontWeight: 700, color: '#dc1f1f' }}>
-                ₩{Number(scan.totalPrize).toLocaleString()}
-              </span>
-            ) : (
-              <span style={{
-                fontSize: 11, color: '#888',
-                background: '#f5f5f5', border: '1px solid #dcdcdc',
-                padding: '2px 8px', borderRadius: 2,
-              }}>낙첨</span>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {Number(scan.totalPrize) > 0 ? (
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#dc1f1f' }}>
+                  ₩{Number(scan.totalPrize).toLocaleString()}
+                </span>
+              ) : (
+                <span style={{
+                  fontSize: 11, color: '#888',
+                  background: '#f5f5f5', border: '1px solid #dcdcdc',
+                  padding: '2px 8px', borderRadius: 2,
+                }}>낙첨</span>
+              )}
+              <span style={{ fontSize: 12, color: '#ccc' }}>›</span>
+            </div>
           </div>
         ))
       )}
       <div style={{ padding: '0 16px', marginTop: 8 }}><AdSlot /></div>
+      {selectedScan && (
+        <ScanDetailModal scan={selectedScan} onClose={() => setSelectedScan(null)} />
+      )}
     </div>
   )
 }

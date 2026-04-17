@@ -196,7 +196,10 @@ export default function StoresPage() {
             🧭 사주 기반 판매점 추천
           </p>
           <p style={{ fontSize: 12, color: '#666', lineHeight: 1.6, marginBottom: 12 }}>
-            {weakElements.join(' · ')} 기운의 흐름을 읽어<br/>전국에서 가장 잘 맞는 판매점 3곳을 점지해 드립니다
+            <span style={{ color: OHAENG_COLOR[primaryOhaeng!] || '#6d28d9', fontWeight: 700 }}>
+              {primaryOhaeng} 핵심 용신
+            </span>
+            {weakElements.length > 1 && ` · ${weakElements.slice(1).join('·')} 보완 기운`}의 흐름을 읽어<br/>전국에서 가장 잘 맞는 판매점 3곳을 점지해 드립니다
           </p>
           <button
             onClick={() => setShowSajuModal(true)}

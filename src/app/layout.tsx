@@ -3,10 +3,10 @@
 // ================================
 
 import type { Metadata } from 'next'
-import Script from 'next/script'
 import './globals.css'
 import { Providers } from '@/components/ui/Providers'
 import { SplashScreen } from '@/components/ui/SplashScreen'
+import { OrientationLock } from '@/components/ui/OrientationLock'
 import { auth } from '@/lib/auth'
 
 export const metadata: Metadata = {
@@ -14,6 +14,10 @@ export const metadata: Metadata = {
   description: '생년월일과 생시를 입력하면 사주에 맞는 로또 번호를 추출해드립니다',
   manifest: '/manifest.json',
   themeColor: '#F5C842',
+  icons: {
+    icon: '/favicon.png',
+    apple: '/icon-192.png',
+  },
   openGraph: {
     title: '사주로또',
     description: '내 사주에 맞는 로또 번호',
@@ -30,15 +34,18 @@ export default async function RootLayout({
 
   return (
     <html lang="ko" className="dark">
-      <body style={{ margin: 0, minHeight: '100vh' }}>
+      <head>
+        <link rel="preload" as="image" href="/splash.jpg" />
         {process.env.NEXT_PUBLIC_ADSENSE_CLIENT && (
-          <Script
+          <script
             async
-            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${process.env.NEXT_PUBLIC_ADSENSE_CLIENT}`}
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${process.env.NEXT_PUBLIC_ADSENSE_CLIENT.trim()}`}
             crossOrigin="anonymous"
-            strategy="afterInteractive"
           />
         )}
+      </head>
+      <body style={{ margin: 0, minHeight: '100vh' }}>
+        <OrientationLock />
         <Providers session={session}>
           <SplashScreen />
           {children}

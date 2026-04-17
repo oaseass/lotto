@@ -5,14 +5,28 @@
 // ================================
 
 import { useState, useEffect } from 'react'
+import { useSession } from 'next-auth/react'
+import { useRouter } from 'next/navigation'
 
 export default function AdminPage() {
+  const { data: session, status: authStatus } = useSession()
+  const router = useRouter()
   const [round, setRound] = useState('')
   const [numbers, setNumbers] = useState('')
   const [bonus, setBonus] = useState('')
   const [date, setDate] = useState('')
   const [status, setStatus] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+
+  useEffect(() => {
+    if (authStatus === 'unauthenticated' || (authStatus === 'authenticated' && !(session?.user as any)?.isAdmin)) {
+      router.replace('/login')
+    }
+  }, [authStatus, session, router])
+
+  if (authStatus === 'loading' || !session || !(session?.user as any)?.isAdmin) {
+    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>확인 중...</div>
+  }
 
   // 직접 입력 저장
   const handleManualSave = async () => {

@@ -69,6 +69,7 @@ export async function GET(req: NextRequest) {
   const ohaeng = searchParams.get('ohaeng')
   const radius = parseFloat(searchParams.get('radius') || '10')
   const top = parseInt(searchParams.get('top') || '20', 10)
+  const directionMode = searchParams.get('direction') === '1' // GPS+방위 정렬 모드
 
   try {
     const excludeInternet: Prisma.LottoStoreWhereInput = {
@@ -111,19 +112,29 @@ export async function GET(req: NextRequest) {
 
       const maxWin = candidates[0]?.winCount1st ?? 1
 
-      const scored = candidates
+      const rawScored = candidates
         .map(store => {
           const { score, regionOhaeng, numOhaeng } = calcSajuScore(store, weakOhaeng, maxWin)
           return { ...store, sajuScore: score, regionOhaeng, numOhaeng }
         })
         .sort((a, b) => b.sajuScore - a.sajuScore)
-        .slice(0, top)
+
+      // 상위 후보 내에서 점수를 60~100 범위로 정규화 → 시각적 분포 개선
+      const normBase = rawScored.slice(0, Math.max(top * 6, 30))
+      const hiScore = normBase[0]?.sajuScore ?? 1
+      const loScore = normBase[normBase.length - 1]?.sajuScore ?? 0
+      const scoreRange = hiScore - loScore || 1
+
+      const scored = normBase.map(s => ({
+        ...s,
+        sajuScore: Math.round(60 + ((s.sajuScore - loScore) / scoreRange) * 40),
+      })).slice(0, top)
 
       return NextResponse.json(scored)
     }
 
-    // ── 사주 + 위치 반경 모드 (ohaeng + lat + lng) ──────────────────
-    if (ohaeng && lat !== null && lng !== null) {
+    // ── 사주 + 위치 반경 모드 (ohaeng + lat + lng, 방위 정렬 아님) ──────────────────
+    if (ohaeng && lat !== null && lng !== null && !directionMode) {
       const weakOhaeng = ohaeng.split(',').filter(Boolean)
       const latDelta = radius / 111
       const lngDelta = radius / 88
@@ -146,14 +157,23 @@ export async function GET(req: NextRequest) {
       )
 
       const maxWin = inRadius.reduce((m, s) => Math.max(m, s.winCount1st), 1)
-      const scored = inRadius
+      const rawScored = inRadius
         .map(store => {
           const { score, regionOhaeng, numOhaeng } = calcSajuScore(store, weakOhaeng, maxWin)
           const distance = calculateDistance(lat, lng, store.lat!, store.lng!)
           return { ...store, sajuScore: score, regionOhaeng, numOhaeng, distance }
         })
         .sort((a, b) => b.sajuScore - a.sajuScore)
-        .slice(0, top)
+
+      const normBase = rawScored.slice(0, Math.max(top * 6, 30))
+      const hiScore = normBase[0]?.sajuScore ?? 1
+      const loScore = normBase[normBase.length - 1]?.sajuScore ?? 0
+      const scoreRange = hiScore - loScore || 1
+
+      const scored = normBase.map(s => ({
+        ...s,
+        sajuScore: Math.round(60 + ((s.sajuScore - loScore) / scoreRange) * 40),
+      })).slice(0, top)
 
       return NextResponse.json(scored)
     }
@@ -180,8 +200,8 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    // GPS+방위 정렬
-    if (lat && lng && ohaeng) {
+    // GPS+방위 정렬 (?direction=1&ohaeng=목&lat=...&lng=...)
+    if (directionMode && lat && lng && ohaeng) {
       const withDistance = stores
         .map(store => {
           if (!store.lat || !store.lng) return null

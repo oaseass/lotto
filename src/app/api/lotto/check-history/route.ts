@@ -17,16 +17,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '잘못된 번호' }, { status: 400 })
     }
 
+    // 필요한 필드만 조회 (prize 등 불필요한 컬럼 제외)
     const draws = await prisma.lottoDraw.findMany({
       orderBy: { round: 'desc' },
       take: 500,
+      select: { round: true, numbers: true, bonus: true },
     })
 
+    const numSet = new Set<number>(numbers)
     const stats = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, checked: draws.length }
 
     for (const draw of draws) {
-      const matched = numbers.filter((n: number) => draw.numbers.includes(n)).length
-      const bonusMatch = numbers.includes(draw.bonus)
+      const drawSet = new Set(draw.numbers)
+      const matched = numbers.filter((n: number) => drawSet.has(n)).length
+      const bonusMatch = numSet.has(draw.bonus)
 
       if (matched === 6) stats[1]++
       else if (matched === 5 && bonusMatch) stats[2]++
@@ -35,7 +39,9 @@ export async function POST(req: NextRequest) {
       else if (matched === 3) stats[5]++
     }
 
-    return NextResponse.json(stats)
+    return NextResponse.json(stats, {
+      headers: { 'Cache-Control': 'private, max-age=3600, stale-while-revalidate=86400' },
+    })
   } catch {
     return NextResponse.json({ error: '조회 실패' }, { status: 500 })
   }
