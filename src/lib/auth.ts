@@ -3,11 +3,9 @@
 // ================================
 
 import NextAuth from 'next-auth'
-import type { OAuthConfig } from 'next-auth/providers'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
-import { customFetch } from '@auth/core'
 
 // PKCE 없이 동작하는 커스텀 카카오 프로바이더
 function KakaoCustomProvider(): any {
@@ -21,32 +19,12 @@ function KakaoCustomProvider(): any {
     },
     token: {
       url: 'https://kauth.kakao.com/oauth/token',
-      async conform(response: Response): Promise<Response | undefined> {
-        // Log actual Kakao token response for debugging
-        const clone = response.clone()
-        const text = await clone.text()
-        console.log('[Kakao token conform] status:', response.status, 'body:', text.slice(0, 500))
-        return undefined
-      },
     },
     userinfo: { url: 'https://kapi.kakao.com/v2/user/me' },
     clientId: process.env.KAKAO_CLIENT_ID,
     clientSecret: process.env.KAKAO_CLIENT_SECRET,
     client: { token_endpoint_auth_method: 'client_secret_post' },
     checks: ['state'],
-    [customFetch]: async (...args: Parameters<typeof fetch>) => {
-      const url = typeof args[0] === 'string' ? args[0] : (args[0] as Request).url
-      console.log('[KakaoFetch] →', url.split('?')[0])
-      try {
-        const resp = await fetch(...args)
-        const text = await resp.clone().text()
-        console.log('[KakaoFetch] ←', resp.status, text.slice(0, 300))
-        return resp
-      } catch (err: any) {
-        console.error('[KakaoFetch] ERROR:', err.message)
-        throw err
-      }
-    },
     profile(profile: any) {
       return {
         id: String(profile.id),
@@ -64,7 +42,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     process.env.AUTH_SECRET!,
     'change-me-to-a-random-32-char-string',
   ],
-  debug: true,
+  debug: false,
   providers: [
     // 이메일+비번 로그인
     CredentialsProvider({
