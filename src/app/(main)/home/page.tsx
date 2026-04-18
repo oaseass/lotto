@@ -329,225 +329,297 @@ function SajuCard({ profile, onSetup, onEdit }: {
   return (
     <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', marginBottom: 8 }}>
       <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '10px 16px 8px', borderBottom: '1px solid #f0f0f0',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '10px 16px 8px',
+        borderBottom: '1px solid #f0f0f0',
+        gap: 8,
       }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: '#333' }}>내 사주 분석</span>
-      <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', marginBottom: 8 }}>
-        <div style={{ padding: '12px 16px 14px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 60px', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <button
-              type="button"
-              onClick={handleRefreshDraw}
-              style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#12a3a8' }}
-            >
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 2v6h-6"/>
-                  <path d="M3 12a9 9 0 0 1 15.55-5.94L21 8"/>
-                  <path d="M3 22v-6h6"/>
-                  <path d="M21 12a9 9 0 0 1-15.55 5.94L3 16"/>
-                </svg>
-                <span style={{ fontSize: 10, fontWeight: 700 }}>{refreshingDraw ? '확인중' : '업데이트'}</span>
-              </div>
-            </button>
-
-            <div style={{ textAlign: 'center' }}>
-              <p style={{ fontSize: 18, fontWeight: 900, color: '#16324f', marginBottom: 4, letterSpacing: '-0.4px' }}>
-                제{draw?.round ?? round - 1}회 당첨번호
-              </p>
-              <p style={{ fontSize: 12, color: '#7b8794' }}>{formatDrawDateLabel(draw?.drawDate)}</p>
-            </div>
-
-            <Link href="/check" style={{ textDecoration: 'none', color: '#11a7b3' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="7" height="7" rx="1"/>
-                  <rect x="14" y="3" width="7" height="7" rx="1"/>
-                  <rect x="3" y="14" width="7" height="7" rx="1"/>
-                  <path d="M14 14h3v3M17 14v3h3M14 17v3M17 21h3"/>
-                </svg>
-                <span style={{ fontSize: 10, fontWeight: 700 }}>QR코드</span>
-              </div>
-            </Link>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '6px 0 12px' }}>
-            {loadingDraw ? (
-              <div style={{ display: 'flex', gap: 6 }}>
-                {[...Array(7)].map((_, index) => (
-                  <div key={index} className="skeleton" style={{ width: 34, height: 34, borderRadius: '50%' }} />
-                ))}
-              </div>
-            ) : draw ? (
-              <LottoBallSet numbers={draw.numbers} bonus={draw.bonus} size="sm" />
-            ) : (
-              <p style={{ fontSize: 12, color: '#8b97a3' }}>당첨번호를 불러오지 못했습니다.</p>
-            )}
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 12 }}>
-            <Link href={draw ? `/draw/${draw.round}` : `/draw/${round - 1}`} style={topActionStyle}>회차 상세</Link>
-            <Link href="/check" style={topActionStyle}>QR 당첨 확인</Link>
-            <button type="button" onClick={handleShareCurrentDraw} style={topActionStyle}>당첨번호 공유</button>
-          </div>
-
-          <div style={{ border: '1px solid #e3ebf2', borderRadius: 14, overflow: 'hidden', background: '#f9fbfd' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'center', padding: '12px 14px', borderBottom: '1px solid #e3ebf2' }}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: '#4b5b6b' }}>1등 당첨금액</p>
-              <p style={{ fontSize: 17, fontWeight: 900, color: '#16324f', letterSpacing: '-0.3px' }}>
-                {draw?.prize1st ? formatPrize(draw.prize1st) : '-'}
-              </p>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'center', padding: '12px 14px' }}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: '#4b5b6b' }}>1등 당첨복권</p>
-              <div style={{ textAlign: 'right' }}>
-                <p style={{ fontSize: 16, fontWeight: 900, color: '#16324f', letterSpacing: '-0.3px' }}>
-                  {draw?.winners1st != null ? `${draw.winners1st}개` : '-'}
-                </p>
-                {hasWinStoreBreakdown && (
-                  <p style={{ fontSize: 11, color: '#7b8794', marginTop: 2 }}>
-                    자동 {autoWinStoreCount} · 수동 {manualWinStoreCount}
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', marginBottom: 8 }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 10,
-          padding: '12px 14px',
-          background: 'linear-gradient(90deg, #16b8c5 0%, #1cc2ae 100%)',
-          color: '#fff',
-        }}>
-          <div>
-            <p style={{ fontSize: 16, fontWeight: 900, marginBottom: 3, letterSpacing: '-0.3px' }}>내 로또 복권 히스토리</p>
-            <p style={{ fontSize: 11, opacity: 0.92 }}>회차별로 빠르게 확인하고 상세 이력으로 이동</p>
-          </div>
-          <Link
-            href={session ? '/history' : '/login'}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 11, color: '#888' }}>
+            {profile.birthYear}.{String(profile.birthMonth).padStart(2, '0')}.{String(profile.birthDay).padStart(2, '0')}
+            {profile.birthHour != null ? ` ${profile.birthHour}시` : ''}
+          </span>
+          <button
+            onClick={onEdit}
             style={{
-              height: 30,
-              padding: '0 12px',
-              borderRadius: 999,
-              border: '1px solid rgba(255,255,255,0.35)',
-              background: 'rgba(255,255,255,0.16)',
-              color: '#fff',
               fontSize: 11,
-              fontWeight: 700,
-              textDecoration: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              whiteSpace: 'nowrap',
+              color: '#007bc3',
+              background: 'none',
+              border: '1px solid #007bc3',
+              borderRadius: 2,
+              padding: '2px 8px',
+              cursor: 'pointer',
+              lineHeight: 1.5,
             }}
           >
-            {session ? '전체보기' : '로그인'}
-          </Link>
+            수정
+          </button>
+        </div>
+      </div>
+
+      <div style={{ padding: '12px 16px 14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 52,
+            height: 52,
+            borderRadius: 4,
+            background: primaryYongsin ? OHAENG_COLOR[primaryYongsin] : '#007bc3',
+            flexShrink: 0,
+          }}>
+            <span style={{ fontSize: 22, fontWeight: 900, color: '#fff', letterSpacing: '-1px' }}>{ilju}</span>
+          </div>
+
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: '#333' }}>{ilju}일주</span>
+              <span style={{ fontSize: 11, color: '#888' }}>{ILJU_DESC[iljuChar] || ''}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 12, color: '#666' }}>부족 기운</span>
+              {weakArr.map(w => (
+                <span
+                  key={w}
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: '#fff',
+                    background: OHAENG_COLOR[w] || '#888',
+                    padding: '1px 8px',
+                    borderRadius: 2,
+                  }}
+                >
+                  {w}({OHAENG_HANJA[w]})
+                </span>
+              ))}
+              <span style={{ fontSize: 11, color: '#888' }}>
+                행운 끝수 {primaryYongsin ? OHAENG_LUCKY[primaryYongsin] : '-'}
+              </span>
+            </div>
+          </div>
         </div>
 
-        {!session ? (
-          <div style={{ padding: '20px 16px 22px', textAlign: 'center' }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: '#16324f', marginBottom: 6 }}>저장 번호와 QR 결과를 한곳에서 보세요</p>
-            <p style={{ fontSize: 12, color: '#7b8794', lineHeight: 1.65, marginBottom: 16 }}>
-              로그인하면 자동 추천 번호와 수동 입력 번호를 회차별 히스토리로 정리해드립니다.
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }}>
-              <Link href="/register" style={{
-                height: 38,
-                padding: '0 18px',
-                borderRadius: 999,
-                background: '#007bc3',
-                color: '#fff',
-                fontSize: 12,
-                fontWeight: 700,
-                textDecoration: 'none',
-                display: 'flex',
-                alignItems: 'center',
-              }}>회원가입</Link>
-              <Link href="/login" style={{
-                height: 38,
-                padding: '0 18px',
-                borderRadius: 999,
-                border: '1px solid #d7dfe7',
-                background: '#fff',
-                color: '#4b5b6b',
-                fontSize: 12,
-                fontWeight: 700,
-                textDecoration: 'none',
-                display: 'flex',
-                alignItems: 'center',
-              }}>로그인</Link>
-            </div>
-          </div>
-        ) : !homeDataReady || loadingList || loadingManual ? (
-          <div style={{ padding: '12px' }}>
-            {[...Array(2)].map((_, index) => (
-              <div key={index} className="skeleton" style={{ height: 130, borderRadius: 14, marginBottom: index === 1 ? 0 : 12 }} />
+        {ohaengEntries.length > 0 && (
+          <div style={{ display: 'flex', gap: 5, marginBottom: 10 }}>
+            {ohaengEntries.map(([element, value]) => (
+              <div key={element} style={{ flex: 1, textAlign: 'center' }}>
+                <div
+                  style={{
+                    height: 4,
+                    borderRadius: 2,
+                    background: OHAENG_COLOR[element] || '#ddd',
+                    opacity: 0.3 + (value / totalOhaeng) * 0.7,
+                    marginBottom: 3,
+                  }}
+                />
+                <p style={{ fontSize: 10, color: OHAENG_COLOR[element] || '#888', fontWeight: 700 }}>
+                  {element}({OHAENG_HANJA[element]})
+                </p>
+                <p style={{ fontSize: 11, fontWeight: 700, color: '#444' }}>{value}</p>
+              </div>
             ))}
           </div>
-        ) : (
-          <>
-            <div style={{ padding: '10px 12px 0' }}>
-              <HistoryScopeToggle value={historyFilter} currentRound={round} onChange={setHistoryFilter} />
+        )}
+
+        {weakArr.length > 0 && (
+          <div style={{
+            background: '#f7fbff',
+            borderLeft: '3px solid #007bc3',
+            borderRadius: '0 2px 2px 0',
+            padding: '8px 10px',
+            marginBottom: 10,
+          }}>
+            <p style={{ fontSize: 12, color: '#444', lineHeight: 1.6 }}>
+              팁 {getSajuComment(primaryYongsin)}
+            </p>
+          </div>
+        )}
+
+        {currentDaeun && (
+          <div style={{
+            background: '#f0f7ff',
+            border: '1px solid #dce8f5',
+            borderRadius: 4,
+            padding: '7px 10px',
+            marginBottom: 10,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            flexWrap: 'wrap',
+          }}>
+            <span style={{ fontSize: 11, color: '#555' }}>현재 대운</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#007bc3' }}>
+              {currentDaeun.ganji}({currentDaeun.hanja})
+            </span>
+            <span style={{ fontSize: 11, color: '#888' }}>만 {currentDaeun.startAge}세 시작</span>
+          </div>
+        )}
+
+        <button
+          onClick={() => setShowIljuDetail(value => !value)}
+          style={{
+            width: '100%',
+            height: 34,
+            background: showIljuDetail ? '#f0f7ff' : '#fff',
+            border: `1px solid ${showIljuDetail ? '#007bc3' : '#dcdcdc'}`,
+            color: showIljuDetail ? '#007bc3' : '#555',
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: 'pointer',
+            borderRadius: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 4,
+          }}
+        >
+          {iljuData ? `${iljuData.hanja} 일주 특성 보기` : '일주 특성 보기'}
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            style={{ transform: showIljuDetail ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}
+          >
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </button>
+
+        {showIljuDetail && (
+          <div style={{
+            marginTop: 10,
+            border: '1px solid #dce8f5',
+            borderRadius: 4,
+            overflow: 'hidden',
+            animation: 'fadeIn 0.15s ease',
+          }}>
+            <div style={{
+              background: primaryYongsin ? OHAENG_COLOR[primaryYongsin] : '#007bc3',
+              padding: '10px 14px',
+            }}>
+              <p style={{ fontSize: 14, fontWeight: 900, color: '#fff', marginBottom: 2 }}>
+                {iljuData ? `${iljuData.hanja} 일주 특성` : `${ilju} 일주 특성`}
+              </p>
+              {iljuData && (
+                <>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)' }}>{iljuData.summary}</p>
+                  {iljuData.hanja.length >= 2 && (
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 3 }}>
+                      {iljuData.hanja[0]}({CHEONGAN_DESC[iljuData.hanja[0]] ?? ''}) · {iljuData.hanja[1]}({JIJI_DESC[iljuData.hanja[1]] ?? ''})
+                    </p>
+                  )}
+                </>
+              )}
             </div>
 
-            {homeHistoryGroups.length > 0 ? (
-              <div style={{ padding: '12px 12px 2px' }}>
-                {homeHistoryGroups.map(group => (
-                  <HomeHistoryRoundCard
-                    key={group.round}
-                    round={group.round}
-                    entries={group.entries}
-                    rankLabel={RANK_LABEL}
-                    onOpenHistory={() => router.push('/history')}
-                  />
+            {loadingIlju ? (
+              <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {[1, 2, 3, 4].map(index => (
+                  <div key={index} className="skeleton" style={{ height: 14, borderRadius: 2 }} />
+                ))}
+              </div>
+            ) : iljuData ? (
+              <div style={{ padding: '12px 14px', background: '#fff', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {[
+                  { label: '성격', value: iljuData.personality },
+                  { label: '직업 적성', value: iljuData.career },
+                  { label: '대인 관계', value: iljuData.relationship },
+                  { label: '재물 흐름', value: iljuData.fortune },
+                  { label: '주의 사항', value: iljuData.caution },
+                ].map(({ label, value }) => (
+                  <div key={label}>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: '#007bc3', marginBottom: 2 }}>{label}</p>
+                    <p style={{ fontSize: 12, color: '#444', lineHeight: 1.65 }}>{value}</p>
+                  </div>
                 ))}
               </div>
             ) : (
-              <div style={{ padding: '20px 16px 22px', textAlign: 'center' }}>
-                <p style={{ fontSize: 13, fontWeight: 700, color: '#16324f', marginBottom: 6 }}>아직 정리된 복권 히스토리가 없습니다</p>
-                <p style={{ fontSize: 12, color: '#7b8794', lineHeight: 1.65, marginBottom: 14 }}>
-                  자동 추천 번호를 저장하거나 수동 번호를 입력하면 이 화면에 회차별로 깔끔하게 정리됩니다.
-                </p>
-                <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }}>
-                  <button type="button" onClick={handleGenerate} style={{
-                    height: 38,
-                    padding: '0 18px',
-                    borderRadius: 999,
-                    border: 'none',
-                    background: '#007bc3',
-                    color: '#fff',
-                    fontSize: 12,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                  }}>번호 뽑기</button>
-                  <button type="button" onClick={() => setShowManualSheet(true)} style={{
-                    height: 38,
-                    padding: '0 18px',
-                    borderRadius: 999,
-                    border: '1px solid #d7dfe7',
-                    background: '#fff',
-                    color: '#4b5b6b',
-                    fontSize: 12,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                  }}>수동 입력</button>
-                </div>
-              </div>
+              <p style={{ padding: '14px', fontSize: 12, color: '#888', textAlign: 'center' }}>
+                일주 데이터를 불러오지 못했습니다.
+              </p>
             )}
-          </>
+          </div>
         )}
       </div>
+    </div>
+  )
+}
+
+interface HomeHistoryEntry {
+  item: SavedNumber
+  mode: 'AUTO' | 'MANUAL'
+  rowLabel: string
+}
+
+function getHistoryBallPalette(number: number): { bg: string; color: string } {
+  if (number <= 10) return { bg: '#f7c948', color: '#6b4e00' }
+  if (number <= 20) return { bg: '#7cc7ff', color: '#0f4870' }
+  if (number <= 30) return { bg: '#ff8f70', color: '#7a2208' }
+  if (number <= 40) return { bg: '#c5ccd6', color: '#46515f' }
+  return { bg: '#8fd36f', color: '#1f5f12' }
+}
+
+function HistoryNumberPills({ numbers }: { numbers: number[] }) {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+      {numbers.map(number => {
+        const palette = getHistoryBallPalette(number)
+
+        return (
+          <span
+            key={number}
+            style={{
+              minWidth: 24,
+              height: 24,
+              padding: '0 6px',
+              borderRadius: 999,
+              background: palette.bg,
+              color: palette.color,
+              fontSize: 11,
+              fontWeight: 900,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {number}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
+function HomeHistoryRoundCard({
+  round,
+  entries,
+  rankLabel,
+  onOpenHistory,
+}: {
+  round: number
+  entries: HomeHistoryEntry[]
+  rankLabel: Record<number, { text: string; bg: string }>
+  onOpenHistory: () => void
+}) {
+  const autoCount = entries.filter(entry => entry.mode === 'AUTO').length
+  const manualCount = entries.filter(entry => entry.mode === 'MANUAL').length
+
+  return (
+    <div style={{
+      border: '1px solid #dbe5ee',
       borderRadius: 14,
       overflow: 'hidden',
       marginBottom: 12,
       boxShadow: '0 6px 18px rgba(0,0,0,0.04)',
+      background: '#fff',
     }}>
       <div style={{
         display: 'flex',
