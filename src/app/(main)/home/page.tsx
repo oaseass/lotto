@@ -257,8 +257,9 @@ function SajuCard({ profile, onSetup, onEdit }: {
   }, [])
 
   useEffect(() => {
-    if (profile?.ilju) fetchIljuData(profile.ilju)
-  }, [profile?.ilju, fetchIljuData])
+    if (!showIljuDetail || !profile?.ilju || iljuData) return
+    fetchIljuData(profile.ilju)
+  }, [fetchIljuData, iljuData, profile?.ilju, showIljuDetail])
 
   const { data: daeunData } = useQuery<DaeunResult | null>({
     queryKey: ['daeun-home'],
@@ -267,7 +268,7 @@ function SajuCard({ profile, onSetup, onEdit }: {
       if (!res.ok) return null
       return res.json()
     },
-    enabled: !!profile?.ilju,
+    enabled: !!profile?.ilju && showIljuDetail,
     staleTime: 24 * 60 * 60 * 1000,
     gcTime: 7 * 24 * 60 * 60 * 1000,
   })
@@ -690,12 +691,76 @@ function NumberRow({
   )
 }
 
+function HomeShortcut({
+  title,
+  subtitle,
+  icon,
+  accent,
+  href,
+  onClick,
+}: {
+  title: string
+  subtitle: string
+  icon: JSX.Element
+  accent: string
+  href?: string
+  onClick?: () => void
+}) {
+  const sharedStyle: React.CSSProperties = {
+    minHeight: 92,
+    padding: '10px 8px',
+    borderRadius: 12,
+    border: '1px solid #e6edf3',
+    background: '#fff',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    textDecoration: 'none',
+    cursor: 'pointer',
+    boxSizing: 'border-box',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.04)',
+  }
+
+  const content = (
+    <>
+      <div style={{
+        width: 34,
+        height: 34,
+        borderRadius: 10,
+        background: `${accent}14`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: accent,
+      }}>
+        {icon}
+      </div>
+      <div>
+        <p style={{ fontSize: 12, fontWeight: 800, color: '#222', marginBottom: 3, letterSpacing: '-0.2px' }}>{title}</p>
+        <p style={{ fontSize: 10, color: '#7b8794', lineHeight: 1.35 }}>{subtitle}</p>
+      </div>
+    </>
+  )
+
+  if (href) {
+    return <Link href={href} style={sharedStyle}>{content}</Link>
+  }
+
+  return (
+    <button onClick={onClick} style={{ ...sharedStyle, textAlign: 'left' }}>
+      {content}
+    </button>
+  )
+}
+
 // ── 메인 홈 페이지 ──────────────────────────────────
 export default function HomePage() {
   const { data: session } = useSession()
   const router = useRouter()
   const queryClient = useQueryClient()
   const round = estimateCurrentRound()
+  const [homeDataReady, setHomeDataReady] = useState(false)
   const [historyFilter, setHistoryFilter] = useState<HistoryScope>('current')
   const [genError, setGenError] = useState('')
   const [toastMsg, setToastMsg] = useState('')
@@ -708,6 +773,11 @@ export default function HomePage() {
   const [finalNums, setFinalNums] = useState<number[] | null>(null)
   const [settled, setSettled] = useState<boolean[]>([false, false, false, false, false, false])
   const animIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setHomeDataReady(true), 220)
+    return () => window.clearTimeout(timer)
+  }, [])
 
   // 최신 당첨번호 — staleTime 1시간 (실제 추첨은 주 1회)
   const { data: draw, isLoading: loadingDraw } = useQuery<DrawInfo | null>({
@@ -729,7 +799,7 @@ export default function HomePage() {
       if (!res.ok) return null
       return res.json()
     },
-    enabled: !!session,
+    enabled: !!session && homeDataReady,
     staleTime: 5 * 60 * 1000,
   })
 
@@ -741,7 +811,7 @@ export default function HomePage() {
       const data = await res.json()
       return Array.isArray(data) ? data : []
     },
-    enabled: !!session,
+    enabled: !!session && homeDataReady,
     staleTime: 60 * 1000,
   })
 
@@ -753,7 +823,7 @@ export default function HomePage() {
       const data = await res.json()
       return Array.isArray(data) ? data : []
     },
-    enabled: !!session,
+    enabled: !!session && homeDataReady,
     staleTime: 60 * 1000,
   })
 
@@ -824,6 +894,7 @@ export default function HomePage() {
     queryClient.refetchQueries({ queryKey: ['home-saved'] })
   }
   const daysLeft = getDaysUntilDraw(new Date())
+  const personalHomeLoading = !!session && !homeDataReady
 
   const RANK_LABEL: Record<number, { text: string; bg: string }> = {
     1: { text: '1등', bg: '#dc1f1f' },
@@ -871,8 +942,154 @@ export default function HomePage() {
         <ReadingSheet onClose={() => setShowReadingSheet(false)} />
       )}
 
+      <div style={{
+        background: '#fff',
+        borderBottom: '1px solid #dcdcdc',
+        padding: '14px 16px 16px',
+        marginBottom: 8,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
+          <div>
+            <p style={{ fontSize: 15, fontWeight: 900, color: '#16324f', marginBottom: 4, letterSpacing: '-0.3px' }}>홈에서 바로 실행</p>
+            <p style={{ fontSize: 11, color: '#6b7b88', lineHeight: 1.5 }}>
+              자주 쓰는 기능을 한 화면에 모아서 바로 들어가게 바꿨습니다.
+            </p>
+          </div>
+          <div style={{
+            flexShrink: 0,
+            minWidth: 84,
+            padding: '8px 10px',
+            borderRadius: 12,
+            background: '#f0f7ff',
+            textAlign: 'right',
+          }}>
+            <p style={{ fontSize: 10, color: '#6c7a89', marginBottom: 3 }}>제 {round}회</p>
+            <p style={{ fontSize: 16, fontWeight: 900, color: '#007bc3', letterSpacing: '-0.3px' }}>
+              {daysLeft === 0 ? '오늘 추첨' : `D-${daysLeft}`}
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8 }}>
+          <HomeShortcut
+            title="QR확인"
+            subtitle="즉시 스캔"
+            accent="#007bc3"
+            href="/check"
+            icon={
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7" rx="1"/>
+                <rect x="14" y="3" width="7" height="7" rx="1"/>
+                <rect x="3" y="14" width="7" height="7" rx="1"/>
+                <path d="M14 14h3v3M17 14v3h3M14 17v3M17 21h3"/>
+              </svg>
+            }
+          />
+          <HomeShortcut
+            title="판매점"
+            subtitle="명당 찾기"
+            accent="#0e8f6a"
+            href="/stores"
+            icon={
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                <circle cx="12" cy="9" r="2.5"/>
+              </svg>
+            }
+          />
+          <HomeShortcut
+            title="운세"
+            subtitle="오늘 흐름"
+            accent="#9b4dca"
+            href="/fortune"
+            icon={
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="9"/>
+                <path d="M12 7v5l3 3"/>
+              </svg>
+            }
+          />
+          <HomeShortcut
+            title="리포트"
+            subtitle="회원 당첨"
+            accent="#d97706"
+            href="/report"
+            icon={
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 19h16"/>
+                <path d="M7 16V8"/>
+                <path d="M12 16V5"/>
+                <path d="M17 16v-4"/>
+              </svg>
+            }
+          />
+          <HomeShortcut
+            title="번호뽑기"
+            subtitle="자동 추천"
+            accent="#007bc3"
+            onClick={handleGenerate}
+            icon={
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+            }
+          />
+          <HomeShortcut
+            title="수동입력"
+            subtitle="직접 선택"
+            accent="#007bc3"
+            onClick={() => setShowManualSheet(true)}
+            icon={
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5"/>
+                <path d="M17.5 2.5a2.121 2.121 0 0 1 3 3L12 14l-4 1 1-4 8.5-8.5z"/>
+              </svg>
+            }
+          />
+          <HomeShortcut
+            title="내이력"
+            subtitle={session ? '저장 번호' : '로그인'}
+            accent="#475569"
+            href={session ? '/history' : '/login'}
+            icon={
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 8v4l2.5 2.5"/>
+                <path d="M3.05 11a9 9 0 1 0 .5-3.5"/>
+                <path d="M3 4.5V8h3.5"/>
+              </svg>
+            }
+          />
+          <HomeShortcut
+            title={session ? '내정보' : '로그인'}
+            subtitle={session ? '사주·결제' : '회원 기능'}
+            accent="#475569"
+            href={session ? '/mypage' : '/login'}
+            icon={
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="8" r="3.5"/>
+                <path d="M5 20a7 7 0 0 1 14 0"/>
+              </svg>
+            }
+          />
+        </div>
+      </div>
+
+      {personalHomeLoading && (
+        <div style={{
+          background: '#fff',
+          borderBottom: '1px solid #dcdcdc',
+          padding: '12px 16px',
+          marginBottom: 8,
+        }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: '#16324f', marginBottom: 4 }}>내 홈 정보를 정리하는 중</p>
+          <p style={{ fontSize: 11, color: '#7b8794', lineHeight: 1.5 }}>
+            첫 화면은 가볍게 열고, 사주 분석과 저장 번호는 바로 뒤에서 불러옵니다.
+          </p>
+        </div>
+      )}
+
       {/* ── 사주 정보 카드 ── */}
-      {session && (
+      {session && homeDataReady && (
         <SajuCard
           profile={sajuProfile ?? null}
           onSetup={() => router.push('/mypage/edit')}
@@ -881,7 +1098,7 @@ export default function HomePage() {
       )}
 
       {/* ── AI 사주 풀이 버튼 ── */}
-      {session && sajuProfile?.ilju && (
+      {session && homeDataReady && sajuProfile?.ilju && (
         <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', padding: '0 16px 12px' }}>
           <button
             onClick={() => setShowReadingSheet(true)}
@@ -899,7 +1116,7 @@ export default function HomePage() {
         </div>
       )}
 
-      <SocialProofCard />
+      {homeDataReady && <SocialProofCard />}
 
       {/* ── 최신 당첨번호 (클릭 → 상세) ── */}
       <Link href={draw ? `/draw/${draw.round}` : `/draw/${round - 1}`} style={{ textDecoration: 'none', display: 'block' }}>
@@ -1032,30 +1249,17 @@ export default function HomePage() {
       )}
 
       {/* ── 내 사주 추천 번호 ── */}
-      <h3 style={{
-        position: 'relative', height: 53, lineHeight: '51px',
-        margin: 0, padding: '0 10px',
-        fontWeight: 700, fontSize: 15, color: '#333',
-        borderTop: '1px solid #dcdcdc', borderBottom: '1px solid #dcdcdc',
-        background: '#f7f7f7',
-      }}>
-        내 사주 추천 번호
-        {session && (
-          <Link href="/history" style={{
-            position: 'absolute', right: 10, top: '50%', marginTop: -12,
-            padding: '4px 10px 4px 0', fontSize: 11, fontWeight: 500, color: '#888',
-            textDecoration: 'none',
-            background: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='9' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M9 18l6-6-6-6'/%3E%3C/svg%3E") right center no-repeat`,
-          }}>
-            전체보기
-          </Link>
-        )}
-      </h3>
-
-      {session && <HistoryScopeToggle value={historyFilter} currentRound={round} onChange={setHistoryFilter} />}
-
-      {/* 번호 목록 */}
       {!session ? (
+        <>
+          <h3 style={{
+            position: 'relative', height: 53, lineHeight: '51px',
+            margin: 0, padding: '0 10px',
+            fontWeight: 700, fontSize: 15, color: '#333',
+            borderTop: '1px solid #dcdcdc', borderBottom: '1px solid #dcdcdc',
+            background: '#f7f7f7',
+          }}>
+            내 사주 추천 번호
+          </h3>
         <div style={{
           background: '#fff', borderBottom: '1px solid #dcdcdc',
           padding: '32px 20px', textAlign: 'center', marginBottom: 8,
@@ -1082,7 +1286,30 @@ export default function HomePage() {
             }}>로그인</Link>
           </div>
         </div>
-      ) : loadingList ? (
+        </>
+      ) : homeDataReady && (
+        <>
+          <h3 style={{
+            position: 'relative', height: 53, lineHeight: '51px',
+            margin: 0, padding: '0 10px',
+            fontWeight: 700, fontSize: 15, color: '#333',
+            borderTop: '1px solid #dcdcdc', borderBottom: '1px solid #dcdcdc',
+            background: '#f7f7f7',
+          }}>
+            내 사주 추천 번호
+            <Link href="/history" style={{
+              position: 'absolute', right: 10, top: '50%', marginTop: -12,
+              padding: '4px 10px 4px 0', fontSize: 11, fontWeight: 500, color: '#888',
+              textDecoration: 'none',
+              background: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='9' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M9 18l6-6-6-6'/%3E%3C/svg%3E") right center no-repeat`,
+            }}>
+              전체보기
+            </Link>
+          </h3>
+
+          <HistoryScopeToggle value={historyFilter} currentRound={round} onChange={setHistoryFilter} />
+
+      {loadingList ? (
         <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', marginBottom: 8 }}>
           {[...Array(3)].map((_, i) => (
             <div key={i} style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1142,10 +1369,12 @@ export default function HomePage() {
           }}>번호 뽑기</button>
         </div>
       )}
+        </>
+      )}
 
       {/* ── 내 수동 번호 ── */}
-      <div style={{ padding: '0 16px', marginBottom: 8 }}><AdSlot /></div>
-      {session && (
+      {homeDataReady && <div style={{ padding: '0 16px', marginBottom: 8 }}><AdSlot /></div>}
+      {session && homeDataReady && (
         <>
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -1232,62 +1461,10 @@ export default function HomePage() {
         </>
       )}
 
-      {/* ── QR 당첨 확인 ── */}
-      <Link href="/check" style={{
-        display: 'flex', alignItems: 'center', padding: '14px 16px',
-        background: '#fff', borderTop: '1px solid #dcdcdc', borderBottom: '1px solid #dcdcdc',
-        textDecoration: 'none', marginBottom: 8,
-      }}>
-        <div style={{
-          width: 36, height: 36, borderRadius: 4, background: '#f0f7ff',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          marginRight: 12, flexShrink: 0,
-        }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#007bc3" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-            <rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M17 14v3h3M14 17v3M17 21h3"/>
-          </svg>
-        </div>
-        <div style={{ flex: 1 }}>
-          <p style={{ fontSize: 14, fontWeight: 600, color: '#333', marginBottom: 1 }}>QR 당첨 확인</p>
-          <p style={{ fontSize: 12, color: '#888' }}>구매한 복권 QR코드로 당첨 여부 확인</p>
-        </div>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="2" strokeLinecap="round">
-          <path d="M9 18l6-6-6-6"/>
-        </svg>
-      </Link>
-
-      {/* ── 판매점 ── */}
-      <Link href="/stores" style={{
-        display: 'flex', alignItems: 'center', padding: '14px 16px',
-        background: '#fff',
-        borderTop: '1px solid #dcdcdc', borderBottom: '1px solid #dcdcdc',
-        textDecoration: 'none',
-        marginBottom: 8,
-      }}>
-        <div style={{
-          width: 36, height: 36, borderRadius: 4, background: '#f0f7ff',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          marginRight: 12, flexShrink: 0,
-        }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#007bc3" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-            <circle cx="12" cy="9" r="2.5"/>
-          </svg>
-        </div>
-        <div style={{ flex: 1 }}>
-          <p style={{ fontSize: 14, fontWeight: 600, color: '#333', marginBottom: 1 }}>판매점 추천</p>
-          <p style={{ fontSize: 12, color: '#888' }}>1등 다수 배출 판매점 · 지역별 검색</p>
-        </div>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="2" strokeLinecap="round">
-          <path d="M9 18l6-6-6-6"/>
-        </svg>
-      </Link>
-
       {/* ── 광고 ── */}
-      <div style={{ padding: '0 16px', marginBottom: 8 }}>
+      {homeDataReady && <div style={{ padding: '0 16px', marginBottom: 8 }}>
         <AdSlot />
-      </div>
+      </div>}
 
       {/* ── 안내 ── */}
       <div style={{
@@ -1303,7 +1480,7 @@ export default function HomePage() {
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
-      <div style={{ padding: '0 16px', marginBottom: 16 }}><AdSlot /></div>
+      {homeDataReady && <div style={{ padding: '0 16px', marginBottom: 16 }}><AdSlot /></div>}
     </div>
   )
 }
