@@ -2,7 +2,7 @@
   "relation": ["delegate_permission/common.handle_all_urls"],
   "target": {
     "namespace": "android_app",
-    "package_name": "app.vercel.lotto_two_dun.twa",
-    "sha256_cert_fingerprints": ["94:65:C8:2F:73:4B:92:2E:7A:76:22:FB:25:24:E7:FA:1F:C8:E7:AB:4F:32:8B:C8:FA:89:DB:52:B4:05:4F:B4"]
+    "package_name": "com.sajulotto1.app",
+    "sha256_cert_fingerprints": ["A7:1F:1F:15:07:FA:B4:98:31:13:4A:34:16:12:BE:D8:2B:13:60:21:C6:89:5A:1B:14:C2:F6:72:13:3E:2C:65"]
   }
 }]

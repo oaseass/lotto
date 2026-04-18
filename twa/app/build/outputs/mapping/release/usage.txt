@@ -3954,7 +3954,6 @@ androidx.core.content.ContextCompat:
     public static final int RECEIVER_VISIBLE_TO_INSTANT_APPS
     private static final java.lang.String TAG
     protected void <init>()
-    public static int checkSelfPermission(android.content.Context,java.lang.String)
     public static android.content.Context createAttributionContext(android.content.Context,java.lang.String)
     public static android.content.Context createDeviceProtectedStorageContext(android.content.Context)
     private static java.io.File createFilesDir(java.io.File)
@@ -10277,6 +10276,8 @@ com.google.j2objc.annotations.WeakOuter
 com.google.thirdparty.publicsuffix.PublicSuffixPatterns
 com.google.thirdparty.publicsuffix.PublicSuffixType
 com.google.thirdparty.publicsuffix.TrieParser
+com.sajulotto1.app.LauncherActivity:
+    private static final int PERMISSION_REQUEST_CODE
 com.sajulotto1.app.R$bool
 com.sajulotto1.app.R$color
 com.sajulotto1.app.R$drawable

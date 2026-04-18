@@ -53,6 +53,16 @@ def twaManifest = [
 android {
     compileSdkVersion 36
     namespace "com.sajulotto1.app"
+
+    signingConfigs {
+        release {
+            storeFile file("D:\\sajulotto\\twa\\android.keystore")
+            storePassword "sajulotto2026!"
+            keyAlias "android"
+            keyPassword "sajulotto2026!"
+        }
+    }
+
     defaultConfig {
         applicationId "com.sajulotto1.app"
         minSdkVersion 21
@@ -153,6 +163,7 @@ android {
     buildTypes {
         release {
             minifyEnabled true
+            signingConfig signingConfigs.release
         }
     }
     compileOptions {

@@ -3,8 +3,8 @@
 # min_api: 21
 # common_typos_disable
 # {"id":"com.android.tools.r8.mapping","version":"2.2"}
-# pg_map_id: de414f0
-# pg_map_hash: SHA-256 de414f0e7ba22b3a0bdb1b6679e37393a4a1724c3b0a3a76fe12c46c026e3110
+# pg_map_id: ba290bb
+# pg_map_hash: SHA-256 ba290bbc80b3e5acbeab8343eebbc8d22f007756b3c9bec0a849ffbcd767252f
 android.support.customtabs.ICustomTabsCallback -> a.a:
 # {"id":"sourceFile","fileName":"ICustomTabsCallback.java"}
     java.lang.String DESCRIPTOR -> a
@@ -11659,22 +11659,22 @@ androidx.core.R$styleable -> s.c:
     7:70:void <clinit>():0:0 -> <clinit>
 androidx.core.app.ActivityCompat -> androidx.core.app.a:
 # {"id":"sourceFile","fileName":"ActivityCompat.java"}
-    1:7:void requestPermissions(android.app.Activity,java.lang.String[],int):512:512 -> g
-    8:10:void requestPermissions(android.app.Activity,java.lang.String[],int):513:513 -> g
-    11:18:void requestPermissions(android.app.Activity,java.lang.String[],int):514:514 -> g
-    19:24:void requestPermissions(android.app.Activity,java.lang.String[],int):519:519 -> g
-    25:34:void requestPermissions(android.app.Activity,java.lang.String[],int):520:520 -> g
-    35:44:void requestPermissions(android.app.Activity,java.lang.String[],int):521:521 -> g
-    45:56:void requestPermissions(android.app.Activity,java.lang.String[],int):515:515 -> g
-    57:76:void requestPermissions(android.app.Activity,java.lang.String[],int):516:516 -> g
-    77:82:void requestPermissions(android.app.Activity,java.lang.String[],int):526:526 -> g
-    83:90:void requestPermissions(android.app.Activity,java.lang.String[],int):528:528 -> g
-    91:95:void requestPermissions(android.app.Activity,java.lang.String[],int):530:530 -> g
-    96:98:void requestPermissions(android.app.Activity,java.lang.String[],int):533:533 -> g
-    99:110:void requestPermissions(android.app.Activity,java.lang.String[],int):534:534 -> g
-    111:118:void requestPermissions(android.app.Activity,java.lang.String[],int):535:535 -> g
-    119:124:void requestPermissions(android.app.Activity,java.lang.String[],int):540:540 -> g
-    125:128:void requestPermissions(android.app.Activity,java.lang.String[],int):545:545 -> g
+    1:7:void requestPermissions(android.app.Activity,java.lang.String[],int):512:512 -> h
+    8:10:void requestPermissions(android.app.Activity,java.lang.String[],int):513:513 -> h
+    11:18:void requestPermissions(android.app.Activity,java.lang.String[],int):514:514 -> h
+    19:24:void requestPermissions(android.app.Activity,java.lang.String[],int):519:519 -> h
+    25:34:void requestPermissions(android.app.Activity,java.lang.String[],int):520:520 -> h
+    35:44:void requestPermissions(android.app.Activity,java.lang.String[],int):521:521 -> h
+    45:56:void requestPermissions(android.app.Activity,java.lang.String[],int):515:515 -> h
+    57:76:void requestPermissions(android.app.Activity,java.lang.String[],int):516:516 -> h
+    77:82:void requestPermissions(android.app.Activity,java.lang.String[],int):526:526 -> h
+    83:90:void requestPermissions(android.app.Activity,java.lang.String[],int):528:528 -> h
+    91:95:void requestPermissions(android.app.Activity,java.lang.String[],int):530:530 -> h
+    96:98:void requestPermissions(android.app.Activity,java.lang.String[],int):533:533 -> h
+    99:110:void requestPermissions(android.app.Activity,java.lang.String[],int):534:534 -> h
+    111:118:void requestPermissions(android.app.Activity,java.lang.String[],int):535:535 -> h
+    119:124:void requestPermissions(android.app.Activity,java.lang.String[],int):540:540 -> h
+    125:128:void requestPermissions(android.app.Activity,java.lang.String[],int):545:545 -> h
 androidx.core.app.ActivityCompat$Api23Impl -> androidx.core.app.a$a:
 # {"id":"sourceFile","fileName":"ActivityCompat.java"}
     1:2:void onSharedElementsReady(java.lang.Object):914:914 -> a
@@ -11772,14 +11772,19 @@ androidx.core.content.ContextCompat -> androidx.core.content.a:
 # {"id":"sourceFile","fileName":"ContextCompat.java"}
     java.lang.Object sSync -> a
     1:8:void <clinit>():177:177 -> <clinit>
-    1:6:int getColor(android.content.Context,int):528:528 -> a
-    7:11:int getColor(android.content.Context,int):529:529 -> a
-    12:20:int getColor(android.content.Context,int):531:531 -> a
-    1:13:android.content.res.ColorStateList getColorStateList(android.content.Context,int):508:508 -> b
-    1:5:android.graphics.drawable.Drawable getDrawable(android.content.Context,int):485:485 -> c
-    1:5:java.io.File[] getExternalCacheDirs(android.content.Context):466:466 -> d
-    1:5:java.io.File[] getExternalFilesDirs(android.content.Context,java.lang.String):417:417 -> e
-    1:4:void startActivity(android.content.Context,android.content.Intent,android.os.Bundle):295:295 -> f
+    1:5:int checkSelfPermission(android.content.Context,java.lang.String):545:545 -> a
+    6:13:int checkSelfPermission(android.content.Context,java.lang.String):546:546 -> a
+    14:19:int checkSelfPermission(android.content.Context,java.lang.String):547:547 -> a
+    20:33:int checkSelfPermission(android.content.Context,java.lang.String):548:548 -> a
+    34:46:int checkSelfPermission(android.content.Context,java.lang.String):552:552 -> a
+    1:6:int getColor(android.content.Context,int):528:528 -> b
+    7:11:int getColor(android.content.Context,int):529:529 -> b
+    12:20:int getColor(android.content.Context,int):531:531 -> b
+    1:13:android.content.res.ColorStateList getColorStateList(android.content.Context,int):508:508 -> c
+    1:5:android.graphics.drawable.Drawable getDrawable(android.content.Context,int):485:485 -> d
+    1:5:java.io.File[] getExternalCacheDirs(android.content.Context):466:466 -> e
+    1:5:java.io.File[] getExternalFilesDirs(android.content.Context,java.lang.String):417:417 -> f
+    1:4:void startActivity(android.content.Context,android.content.Intent,android.os.Bundle):295:295 -> g
 androidx.core.content.ContextCompat$Api21Impl -> androidx.core.content.a$a:
 # {"id":"sourceFile","fileName":"ContextCompat.java"}
     1:5:java.io.File getCodeCacheDir(android.content.Context):1059:1059 -> a
@@ -24616,12 +24621,21 @@ com.sajulotto1.app.DelegationService -> com.sajulotto1.app.DelegationService:
     1:4:void onCreate():9:9 -> onCreate
 com.sajulotto1.app.LauncherActivity -> com.sajulotto1.app.LauncherActivity:
 # {"id":"sourceFile","fileName":"LauncherActivity.java"}
-    1:4:void <init>():25:25 -> <init>
-    1:5:android.net.Uri getLaunchingUrl():48:48 -> i
-    1:3:void onCreate(android.os.Bundle):33:33 -> onCreate
-    4:11:void onCreate(android.os.Bundle):38:38 -> onCreate
-    12:16:void onCreate(android.os.Bundle):39:39 -> onCreate
-    17:20:void onCreate(android.os.Bundle):41:41 -> onCreate
+    1:4:void <init>():33:33 -> <init>
+    1:5:android.net.Uri getLaunchingUrl():71:71 -> i
+    1:3:void onCreate(android.os.Bundle):42:42 -> onCreate
+    4:11:void onCreate(android.os.Bundle):43:43 -> onCreate
+    12:16:void onCreate(android.os.Bundle):44:44 -> onCreate
+    17:23:void onCreate(android.os.Bundle):46:46 -> onCreate
+    24:28:void onCreate(android.os.Bundle):51:51 -> onCreate
+    29:36:void onCreate(android.os.Bundle):52:52 -> onCreate
+    37:39:void onCreate(android.os.Bundle):54:54 -> onCreate
+    40:47:void onCreate(android.os.Bundle):56:56 -> onCreate
+    48:50:void onCreate(android.os.Bundle):58:58 -> onCreate
+    51:57:void onCreate(android.os.Bundle):60:60 -> onCreate
+    58:59:void onCreate(android.os.Bundle):61:61 -> onCreate
+    60:67:void onCreate(android.os.Bundle):62:62 -> onCreate
+    68:71:void onCreate(android.os.Bundle):61:61 -> onCreate
 kotlin.Lazy -> N.a:
 # {"id":"sourceFile","fileName":"Lazy.kt"}
     java.lang.Object getValue() -> getValue
