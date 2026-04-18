@@ -26,6 +26,12 @@ interface DrawInfo {
   prize2nd?: string | null
 }
 
+interface WinStoreInfo {
+  name: string
+  address: string
+  method?: string | null
+}
+
 interface SavedNumber {
   id: string
   numbers: number[]
@@ -124,6 +130,18 @@ function formatPrize(prizeStr: string): string {
   }
   if (n >= 10000000) return `${Math.floor(n / 10000000)}천만원`
   return n.toLocaleString() + '원'
+}
+
+function formatDrawDateLabel(isoDate: string | null | undefined): string {
+  if (!isoDate) return ''
+
+  const date = new Date(isoDate)
+  if (Number.isNaN(date.getTime())) return isoDate
+
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}년 ${month}월 ${day}일 추첨`
 }
 
 function isCurrentPurchasableNumber(item: SavedNumber, currentRound: number): boolean {
@@ -315,442 +333,336 @@ function SajuCard({ profile, onSetup, onEdit }: {
         padding: '10px 16px 8px', borderBottom: '1px solid #f0f0f0',
       }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: '#333' }}>내 사주 분석</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 11, color: '#888' }}>
-            {profile.birthYear}.{String(profile.birthMonth).padStart(2, '0')}.{String(profile.birthDay).padStart(2, '0')}
-            {profile.birthHour != null ? ` ${profile.birthHour}시` : ''}
-          </span>
-          <button onClick={onEdit} style={{
-            fontSize: 11, color: '#007bc3', background: 'none',
-            border: '1px solid #007bc3', borderRadius: 2, padding: '2px 8px',
-            cursor: 'pointer', lineHeight: 1.5,
-          }}>수정</button>
+      <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', marginBottom: 8 }}>
+        <div style={{ padding: '12px 16px 14px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 60px', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <button
+              type="button"
+              onClick={handleRefreshDraw}
+              style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#12a3a8' }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 2v6h-6"/>
+                  <path d="M3 12a9 9 0 0 1 15.55-5.94L21 8"/>
+                  <path d="M3 22v-6h6"/>
+                  <path d="M21 12a9 9 0 0 1-15.55 5.94L3 16"/>
+                </svg>
+                <span style={{ fontSize: 10, fontWeight: 700 }}>{refreshingDraw ? '확인중' : '업데이트'}</span>
+              </div>
+            </button>
+
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ fontSize: 18, fontWeight: 900, color: '#16324f', marginBottom: 4, letterSpacing: '-0.4px' }}>
+                제{draw?.round ?? round - 1}회 당첨번호
+              </p>
+              <p style={{ fontSize: 12, color: '#7b8794' }}>{formatDrawDateLabel(draw?.drawDate)}</p>
+            </div>
+
+            <Link href="/check" style={{ textDecoration: 'none', color: '#11a7b3' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="7" height="7" rx="1"/>
+                  <rect x="14" y="3" width="7" height="7" rx="1"/>
+                  <rect x="3" y="14" width="7" height="7" rx="1"/>
+                  <path d="M14 14h3v3M17 14v3h3M14 17v3M17 21h3"/>
+                </svg>
+                <span style={{ fontSize: 10, fontWeight: 700 }}>QR코드</span>
+              </div>
+            </Link>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '6px 0 12px' }}>
+            {loadingDraw ? (
+              <div style={{ display: 'flex', gap: 6 }}>
+                {[...Array(7)].map((_, index) => (
+                  <div key={index} className="skeleton" style={{ width: 34, height: 34, borderRadius: '50%' }} />
+                ))}
+              </div>
+            ) : draw ? (
+              <LottoBallSet numbers={draw.numbers} bonus={draw.bonus} size="sm" />
+            ) : (
+              <p style={{ fontSize: 12, color: '#8b97a3' }}>당첨번호를 불러오지 못했습니다.</p>
+            )}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 12 }}>
+            <Link href={draw ? `/draw/${draw.round}` : `/draw/${round - 1}`} style={topActionStyle}>회차 상세</Link>
+            <Link href="/check" style={topActionStyle}>QR 당첨 확인</Link>
+            <button type="button" onClick={handleShareCurrentDraw} style={topActionStyle}>당첨번호 공유</button>
+          </div>
+
+          <div style={{ border: '1px solid #e3ebf2', borderRadius: 14, overflow: 'hidden', background: '#f9fbfd' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'center', padding: '12px 14px', borderBottom: '1px solid #e3ebf2' }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#4b5b6b' }}>1등 당첨금액</p>
+              <p style={{ fontSize: 17, fontWeight: 900, color: '#16324f', letterSpacing: '-0.3px' }}>
+                {draw?.prize1st ? formatPrize(draw.prize1st) : '-'}
+              </p>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'center', padding: '12px 14px' }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#4b5b6b' }}>1등 당첨복권</p>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ fontSize: 16, fontWeight: 900, color: '#16324f', letterSpacing: '-0.3px' }}>
+                  {draw?.winners1st != null ? `${draw.winners1st}개` : '-'}
+                </p>
+                {hasWinStoreBreakdown && (
+                  <p style={{ fontSize: 11, color: '#7b8794', marginTop: 2 }}>
+                    자동 {autoWinStoreCount} · 수동 {manualWinStoreCount}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div style={{ padding: '12px 16px 14px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 52, height: 52, borderRadius: 4,
-            background: primaryYongsin ? OHAENG_COLOR[primaryYongsin] : '#007bc3', flexShrink: 0,
-          }}>
-            <span style={{ fontSize: 22, fontWeight: 900, color: '#fff', letterSpacing: '-1px' }}>{ilju}</span>
+      <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', marginBottom: 8 }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 10,
+          padding: '12px 14px',
+          background: 'linear-gradient(90deg, #16b8c5 0%, #1cc2ae 100%)',
+          color: '#fff',
+        }}>
+          <div>
+            <p style={{ fontSize: 16, fontWeight: 900, marginBottom: 3, letterSpacing: '-0.3px' }}>내 로또 복권 히스토리</p>
+            <p style={{ fontSize: 11, opacity: 0.92 }}>회차별로 빠르게 확인하고 상세 이력으로 이동</p>
           </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-              <span style={{ fontSize: 15, fontWeight: 700, color: '#333' }}>{ilju}일주</span>
-              <span style={{ fontSize: 11, color: '#888' }}>{ILJU_DESC[iljuChar] || ''}</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 12, color: '#666' }}>부족 기운</span>
-              {weakArr.map(w => (
-                <span key={w} style={{
-                  fontSize: 12, fontWeight: 700, color: '#fff',
-                  background: OHAENG_COLOR[w] || '#888',
-                  padding: '1px 8px', borderRadius: 2,
-                }}>
-                  {w}({OHAENG_HANJA[w]})
-                </span>
-              ))}
-              <span style={{ fontSize: 11, color: '#888' }}>행운수: {primaryYongsin ? OHAENG_LUCKY[primaryYongsin] : '-'}</span>
-            </div>
-          </div>
+          <Link
+            href={session ? '/history' : '/login'}
+            style={{
+              height: 30,
+              padding: '0 12px',
+              borderRadius: 999,
+              border: '1px solid rgba(255,255,255,0.35)',
+              background: 'rgba(255,255,255,0.16)',
+              color: '#fff',
+              fontSize: 11,
+              fontWeight: 700,
+              textDecoration: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {session ? '전체보기' : '로그인'}
+          </Link>
         </div>
 
-        {ohaengEntries.length > 0 && (
-          <div style={{ display: 'flex', gap: 5, marginBottom: 10 }}>
-            {ohaengEntries.map(([el, val]) => (
-              <div key={el} style={{ flex: 1, textAlign: 'center' }}>
-                <div style={{
-                  height: 4, borderRadius: 2,
-                  background: OHAENG_COLOR[el] || '#ddd',
-                  opacity: 0.3 + (val / totalOhaeng) * 0.7, marginBottom: 3,
-                }} />
-                <p style={{ fontSize: 10, color: OHAENG_COLOR[el] || '#888', fontWeight: 700 }}>
-                  {el}({OHAENG_HANJA[el]})
-                </p>
-                <p style={{ fontSize: 11, fontWeight: 700, color: '#444' }}>{val}</p>
-              </div>
+        {!session ? (
+          <div style={{ padding: '20px 16px 22px', textAlign: 'center' }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#16324f', marginBottom: 6 }}>저장 번호와 QR 결과를 한곳에서 보세요</p>
+            <p style={{ fontSize: 12, color: '#7b8794', lineHeight: 1.65, marginBottom: 16 }}>
+              로그인하면 자동 추천 번호와 수동 입력 번호를 회차별 히스토리로 정리해드립니다.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }}>
+              <Link href="/register" style={{
+                height: 38,
+                padding: '0 18px',
+                borderRadius: 999,
+                background: '#007bc3',
+                color: '#fff',
+                fontSize: 12,
+                fontWeight: 700,
+                textDecoration: 'none',
+                display: 'flex',
+                alignItems: 'center',
+              }}>회원가입</Link>
+              <Link href="/login" style={{
+                height: 38,
+                padding: '0 18px',
+                borderRadius: 999,
+                border: '1px solid #d7dfe7',
+                background: '#fff',
+                color: '#4b5b6b',
+                fontSize: 12,
+                fontWeight: 700,
+                textDecoration: 'none',
+                display: 'flex',
+                alignItems: 'center',
+              }}>로그인</Link>
+            </div>
+          </div>
+        ) : !homeDataReady || loadingList || loadingManual ? (
+          <div style={{ padding: '12px' }}>
+            {[...Array(2)].map((_, index) => (
+              <div key={index} className="skeleton" style={{ height: 130, borderRadius: 14, marginBottom: index === 1 ? 0 : 12 }} />
             ))}
           </div>
-        )}
-
-        {weakArr.length > 0 && (
-          <div style={{
-            background: '#f7fbff', borderLeft: '3px solid #007bc3',
-            borderRadius: '0 2px 2px 0', padding: '8px 10px', marginBottom: 10,
-          }}>
-            <p style={{ fontSize: 12, color: '#444', lineHeight: 1.6 }}>
-              💡 {getSajuComment(primaryYongsin)}
-            </p>
-          </div>
-        )}
-
-        {/* 현재 대운 한 줄 표시 */}
-        {currentDaeun && (
-          <div style={{
-            background: '#f0f7ff',
-            border: '1px solid #dce8f5',
-            borderRadius: 4,
-            padding: '7px 10px',
-            marginBottom: 10,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-          }}>
-            <span style={{ fontSize: 11, color: '#555' }}>현재 대운</span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#007bc3' }}>
-              {currentDaeun.ganji}({currentDaeun.hanja})
-            </span>
-            <span style={{ fontSize: 11, color: '#888' }}>· {currentDaeun.startAge}세 시작</span>
-          </div>
-        )}
-
-        {/* 일주 특성 보기 토글 버튼 */}
-        <button
-          onClick={() => setShowIljuDetail(v => !v)}
-          style={{
-            width: '100%', height: 34,
-            background: showIljuDetail ? '#f0f7ff' : '#fff',
-            border: `1px solid ${showIljuDetail ? '#007bc3' : '#dcdcdc'}`,
-            color: showIljuDetail ? '#007bc3' : '#555',
-            fontSize: 12, fontWeight: 600,
-            cursor: 'pointer', borderRadius: 2,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-          }}
-        >
-          {iljuData ? `${iljuData.hanja}일주 특성 보기` : '일주 특성 보기'}
-          <svg
-            width="12" height="12" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
-            style={{ transform: showIljuDetail ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}
-          >
-            <path d="M6 9l6 6 6-6"/>
-          </svg>
-        </button>
-
-        {/* 일주 특성 상세 패널 */}
-        {showIljuDetail && (
-          <div style={{
-            marginTop: 10,
-            border: '1px solid #dce8f5',
-            borderRadius: 4,
-            overflow: 'hidden',
-            animation: 'fadeIn 0.15s ease',
-          }}>
-            {/* 헤더 */}
-            <div style={{
-              background: primaryYongsin ? OHAENG_COLOR[primaryYongsin] : '#007bc3',
-              padding: '10px 14px',
-            }}>
-              <p style={{ fontSize: 14, fontWeight: 900, color: '#fff', marginBottom: 2 }}>
-                {iljuData ? iljuData.hanja : ilju}일주 특성
-              </p>
-              {iljuData && (
-                <>
-                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)' }}>
-                    {iljuData.summary}
-                  </p>
-                  {iljuData.hanja.length >= 2 && (
-                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 3 }}>
-                      {iljuData.hanja[0]}({CHEONGAN_DESC[iljuData.hanja[0]] ?? ''}) · {iljuData.hanja[1]}({JIJI_DESC[iljuData.hanja[1]] ?? ''})
-                    </p>
-                  )}
-                </>
-              )}
+        ) : (
+          <>
+            <div style={{ padding: '10px 12px 0' }}>
+              <HistoryScopeToggle value={historyFilter} currentRound={round} onChange={setHistoryFilter} />
             </div>
 
-            {loadingIlju ? (
-              <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[1,2,3,4].map(i => (
-                  <div key={i} className="skeleton" style={{ height: 14, borderRadius: 2 }} />
-                ))}
-              </div>
-            ) : iljuData ? (
-              <div style={{ padding: '12px 14px', background: '#fff', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {[
-                  { icon: '📖', label: '성격', value: iljuData.personality },
-                  { icon: '💼', label: '직업 적성', value: iljuData.career },
-                  { icon: '🤝', label: '인간관계', value: iljuData.relationship },
-                  { icon: '💰', label: '재물운', value: iljuData.fortune },
-                  { icon: '⚠️', label: '주의사항', value: iljuData.caution },
-                ].map(({ icon, label, value }) => (
-                  <div key={label} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                    <span style={{ fontSize: 14, flexShrink: 0, lineHeight: 1.5 }}>{icon}</span>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 11, fontWeight: 700, color: '#007bc3', marginBottom: 2 }}>{label}</p>
-                      <p style={{ fontSize: 12, color: '#444', lineHeight: 1.65 }}>{value}</p>
-                    </div>
-                  </div>
+            {homeHistoryGroups.length > 0 ? (
+              <div style={{ padding: '12px 12px 2px' }}>
+                {homeHistoryGroups.map(group => (
+                  <HomeHistoryRoundCard
+                    key={group.round}
+                    round={group.round}
+                    entries={group.entries}
+                    rankLabel={RANK_LABEL}
+                    onOpenHistory={() => router.push('/history')}
+                  />
                 ))}
               </div>
             ) : (
-              <p style={{ padding: '14px', fontSize: 12, color: '#888', textAlign: 'center' }}>
-                일주 데이터를 불러올 수 없습니다
-              </p>
+              <div style={{ padding: '20px 16px 22px', textAlign: 'center' }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: '#16324f', marginBottom: 6 }}>아직 정리된 복권 히스토리가 없습니다</p>
+                <p style={{ fontSize: 12, color: '#7b8794', lineHeight: 1.65, marginBottom: 14 }}>
+                  자동 추천 번호를 저장하거나 수동 번호를 입력하면 이 화면에 회차별로 깔끔하게 정리됩니다.
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }}>
+                  <button type="button" onClick={handleGenerate} style={{
+                    height: 38,
+                    padding: '0 18px',
+                    borderRadius: 999,
+                    border: 'none',
+                    background: '#007bc3',
+                    color: '#fff',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}>번호 뽑기</button>
+                  <button type="button" onClick={() => setShowManualSheet(true)} style={{
+                    height: 38,
+                    padding: '0 18px',
+                    borderRadius: 999,
+                    border: '1px solid #d7dfe7',
+                    background: '#fff',
+                    color: '#4b5b6b',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}>수동 입력</button>
+                </div>
+              </div>
             )}
-          </div>
+          </>
         )}
       </div>
-    </div>
-  )
-}
-
-// ── 번호 행 (클릭 시 사주 근거 + 당첨이력 펼치기) ──────────────────────────────────
-interface HistoryStats { 1: number; 2: number; 3: number; 4: number; 5: number; checked: number }
-
-function NumberRow({
-  item,
-  isLast,
-  yongsin,
-  rankLabel,
-}: {
-  item: SavedNumber
-  isLast: boolean
-  yongsin: string | null
-  rankLabel: Record<number, { text: string; bg: string }>
-}) {
-  const [expanded, setExpanded] = useState(false)
-  const [history, setHistory] = useState<HistoryStats | null>(null)
-  const [loadingHistory, setLoadingHistory] = useState(false)
-  const numRoles = yongsin ? item.numbers.map(n => getNumRole(n, yongsin)) : null
-  const displayRound = resolveNumberDrawRound(item.drawRound, item.generatedDate ?? item.createdAt)
-
-  const loadHistory = async () => {
-    if (history || loadingHistory) return
-    setLoadingHistory(true)
-    try {
-      const res = await fetch('/api/lotto/check-history', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ numbers: item.numbers }),
-      })
-      setHistory(await res.json())
-    } finally {
-      setLoadingHistory(false)
-    }
-  }
-
-  return (
-    <div style={{ borderBottom: isLast ? 'none' : '1px solid #f0f0f0' }}>
-      {/* 기본 행 */}
-      <div
-        onClick={() => {
-          setExpanded(e => !e)
-          if (!expanded) loadHistory()
-        }}
-        style={{
-          padding: '10px 16px',
-          display: 'flex', alignItems: 'center', gap: 10,
-          cursor: 'pointer',
-          background: expanded ? '#f7fbff' : '#fff',
-          transition: 'background 0.15s',
-        }}
-      >
-        {/* 회차 */}
-        <div style={{ width: 56, flexShrink: 0 }}>
-          <p style={{ fontSize: 10, color: '#888', margin: 0, marginBottom: 1, whiteSpace: 'nowrap' }}>회차</p>
-          <p style={{ fontSize: 13, fontWeight: 700, color: '#333', margin: 0, whiteSpace: 'nowrap' }}>제{displayRound}회</p>
-        </div>
-        {/* 번호 볼 */}
-        <div style={{ flex: 1 }}>
-          <LottoBallSet numbers={item.numbers} size="sm" />
-        </div>
-        {/* 생성일시 + 결과 */}
-        <div style={{ flexShrink: 0, textAlign: 'right' }}>
-          <p style={{ fontSize: 10, color: '#bbb', marginBottom: 3 }}>{formatDate(item.createdAt)}</p>
-          {item.rank ? (
-            <span style={{
-              fontSize: 11, fontWeight: 700, color: '#fff',
-              background: rankLabel[item.rank]?.bg || '#888',
-              padding: '2px 7px', borderRadius: 2,
-            }}>
-              {rankLabel[item.rank]?.text}
-            </span>
-          ) : (
-            <span style={{
-              fontSize: 10, color: '#888',
-              background: '#f5f5f5', border: '1px solid #e0e0e0',
-              padding: '2px 6px', borderRadius: 2,
-            }}>-</span>
-          )}
-        </div>
-        {/* 펼치기 화살표 */}
-        <svg
-          width="14" height="14" viewBox="0 0 24 24" fill="none"
-          stroke="#bbb" strokeWidth="2.5" strokeLinecap="round"
-          style={{ flexShrink: 0, transform: expanded ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }}
-        >
-          <path d="M6 9l6 6 6-6"/>
-        </svg>
-      </div>
-
-      {/* 펼쳐진 사주 근거 */}
-      {expanded && (
-        <div style={{
-          background: '#f7fbff',
-          borderTop: '1px solid #e0eef8',
-          padding: '12px 16px 14px',
-          animation: 'fadeIn 0.15s ease',
-        }}>
-          {/* 번호별 오행 색상 분류 */}
-          {numRoles && (
-            <>
-              <p style={{ fontSize: 11, fontWeight: 700, color: '#007bc3', marginBottom: 8 }}>
-                🎴 번호별 사주 오행 구성
-              </p>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-                {item.numbers.map((n, i) => {
-                  const { color, role } = numRoles[i]
-                  return (
-                    <div key={n} style={{ textAlign: 'center' }}>
-                      <div style={{
-                        width: 36, height: 36, borderRadius: '50%',
-                        background: color,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 13, fontWeight: 900, color: '#fff',
-                        marginBottom: 3,
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
-                      }}>
-                        {n}
-                      </div>
-                      <p style={{ fontSize: 9, color: color, fontWeight: 700, lineHeight: 1.3 }}>
-                        {role.split(' ')[0]}
-                      </p>
-                    </div>
-                  )
-                })}
-              </div>
-
-              {/* 범례 */}
-              {yongsin && (
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-                  {yongsin.split(',').filter(Boolean).map((w, idx) => (
-                    <span key={w} style={{
-                      fontSize: 10, padding: '2px 8px', borderRadius: 10,
-                      background: OHAENG_COLOR[w], color: '#fff', fontWeight: idx === 0 ? 700 : 600,
-                    }}>
-                      ● {idx === 0 ? '핵심' : '보조'} 부족 기운 {w}({OHAENG_HANJA[w]}) — {OHAENG_LUCKY[w]} 끝
-                    </span>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-
-          {/* reason 텍스트 */}
-          {item.reason && (
-            <div style={{
-              background: '#fff',
-              border: '1px solid #dce8f5',
-              borderRadius: 4, padding: '10px 12px',
-            }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: '#007bc3', marginBottom: 4 }}>📖 사주 분석 근거</p>
-              <p style={{ fontSize: 12, color: '#444', lineHeight: 1.75 }}>{item.reason}</p>
-            </div>
-          )}
-
-          {/* 과거 당첨 이력 */}
-          <div style={{ marginTop: 10 }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: '#333', marginBottom: 6 }}>🏆 과거 당첨 이력</p>
-            {loadingHistory ? (
-              <div style={{ display: 'flex', gap: 6 }}>
-                {[1,2,3,4,5].map(i => (
-                  <div key={i} className="skeleton" style={{ flex: 1, height: 44, borderRadius: 4 }} />
-                ))}
-              </div>
-            ) : history ? (
-              <>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  {([1,2,3,4,5] as const).map(rank => {
-                    const count = history[rank]
-                    const colors = ['#dc1f1f','#e03f0e','#e4a816','#007bc3','#129f97']
-                    return (
-                      <div key={rank} style={{
-                        flex: 1, textAlign: 'center', padding: '6px 4px',
-                        background: count > 0 ? '#fff' : '#f5f5f5',
-                        border: `1px solid ${count > 0 ? colors[rank-1] : '#e0e0e0'}`,
-                        borderRadius: 4,
-                      }}>
-                        <p style={{ fontSize: 15, fontWeight: 700, color: count > 0 ? colors[rank-1] : '#ccc' }}>{count}</p>
-                        <p style={{ fontSize: 10, color: '#888' }}>{rank}등</p>
-                      </div>
-                    )
-                  })}
-                </div>
-                <p style={{ fontSize: 10, color: '#bbb', marginTop: 5, textAlign: 'right' }}>
-                  최근 {history.checked}회차 기준
-                </p>
-              </>
-            ) : null}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function HomeShortcut({
-  title,
-  subtitle,
-  icon,
-  accent,
-  href,
-  onClick,
-}: {
-  title: string
-  subtitle: string
-  icon: JSX.Element
-  accent: string
-  href?: string
-  onClick?: () => void
-}) {
-  const sharedStyle: React.CSSProperties = {
-    minHeight: 92,
-    padding: '10px 8px',
-    borderRadius: 12,
-    border: '1px solid #e6edf3',
-    background: '#fff',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    textDecoration: 'none',
-    cursor: 'pointer',
-    boxSizing: 'border-box',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.04)',
-  }
-
-  const content = (
-    <>
+      borderRadius: 14,
+      overflow: 'hidden',
+      marginBottom: 12,
+      boxShadow: '0 6px 18px rgba(0,0,0,0.04)',
+    }}>
       <div style={{
-        width: 34,
-        height: 34,
-        borderRadius: 10,
-        background: `${accent}14`,
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center',
-        color: accent,
+        justifyContent: 'space-between',
+        gap: 10,
+        padding: '10px 12px',
+        background: '#f4f8fb',
+        borderBottom: '1px solid #e4edf4',
       }}>
-        {icon}
+        <div>
+          <p style={{ fontSize: 15, fontWeight: 900, color: '#16324f', marginBottom: 3 }}>제 {round}회</p>
+          <p style={{ fontSize: 10, color: '#6b7b88' }}>
+            {autoCount > 0 ? `자동 ${autoCount}` : '자동 0'}
+            {' · '}
+            {manualCount > 0 ? `수동 ${manualCount}` : '수동 0'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onOpenHistory}
+          style={{
+            height: 30,
+            padding: '0 12px',
+            borderRadius: 999,
+            border: '1px solid #d0d9e3',
+            background: '#fff',
+            color: '#4b5b6b',
+            fontSize: 11,
+            fontWeight: 700,
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          전체 보기
+        </button>
       </div>
-      <div>
-        <p style={{ fontSize: 12, fontWeight: 800, color: '#222', marginBottom: 3, letterSpacing: '-0.2px' }}>{title}</p>
-        <p style={{ fontSize: 10, color: '#7b8794', lineHeight: 1.35 }}>{subtitle}</p>
+
+      <div style={{ padding: '0 10px' }}>
+        {entries.map((entry, index) => {
+          const outcomeLabel = entry.item.rank ? rankLabel[entry.item.rank]?.text : '확인 전'
+          const outcomeColor = entry.item.rank ? rankLabel[entry.item.rank]?.bg : '#94a3b8'
+
+          return (
+            <div
+              key={entry.item.id}
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '28px 58px minmax(0, 1fr) 78px',
+                gap: 8,
+                alignItems: 'center',
+                padding: '10px 0',
+                borderBottom: index === entries.length - 1 ? 'none' : '1px solid #edf2f7',
+              }}
+            >
+              <div style={{
+                width: 24,
+                height: 24,
+                borderRadius: 6,
+                background: '#f2f6fa',
+                color: '#5a6b7b',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 12,
+                fontWeight: 900,
+              }}>
+                {entry.rowLabel}
+              </div>
+
+              <div>
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minWidth: 38,
+                  height: 20,
+                  padding: '0 8px',
+                  borderRadius: 999,
+                  background: entry.mode === 'AUTO' ? '#e8f4ff' : '#f4ebff',
+                  color: entry.mode === 'AUTO' ? '#007bc3' : '#8f35c8',
+                  fontSize: 10,
+                  fontWeight: 800,
+                }}>
+                  {entry.mode === 'AUTO' ? '자동' : '수동'}
+                </span>
+                <p style={{ fontSize: 10, fontWeight: 700, color: outcomeColor, marginTop: 4 }}>{outcomeLabel}</p>
+              </div>
+
+              <div style={{ minWidth: 0 }}>
+                <HistoryNumberPills numbers={entry.item.numbers} />
+                <p style={{ fontSize: 10, color: '#8b97a3', marginTop: 6 }}>등록 {formatDate(entry.item.createdAt)}</p>
+              </div>
+
+              <button
+                type="button"
+                onClick={onOpenHistory}
+                style={{
+                  height: 32,
+                  borderRadius: 8,
+                  border: '1px solid #d2d9e0',
+                  background: '#f7f9fb',
+                  color: '#556371',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                상세 확인
+              </button>
+            </div>
+          )
+        })}
       </div>
-    </>
-  )
-
-  if (href) {
-    return <Link href={href} style={sharedStyle}>{content}</Link>
-  }
-
-  return (
-    <button onClick={onClick} style={{ ...sharedStyle, textAlign: 'left' }}>
-      {content}
-    </button>
+    </div>
   )
 }
 
@@ -761,7 +673,7 @@ export default function HomePage() {
   const queryClient = useQueryClient()
   const round = estimateCurrentRound()
   const [homeDataReady, setHomeDataReady] = useState(false)
-  const [historyFilter, setHistoryFilter] = useState<HistoryScope>('current')
+  const [historyFilter, setHistoryFilter] = useState<HistoryScope>('all')
   const [genError, setGenError] = useState('')
   const [toastMsg, setToastMsg] = useState('')
   const [showManualSheet, setShowManualSheet] = useState(false)
@@ -779,8 +691,15 @@ export default function HomePage() {
     return () => window.clearTimeout(timer)
   }, [])
 
+  useEffect(() => {
+    if (!toastMsg) return
+
+    const timer = window.setTimeout(() => setToastMsg(''), 2200)
+    return () => window.clearTimeout(timer)
+  }, [toastMsg])
+
   // 최신 당첨번호 — staleTime 1시간 (실제 추첨은 주 1회)
-  const { data: draw, isLoading: loadingDraw } = useQuery<DrawInfo | null>({
+  const { data: draw, isLoading: loadingDraw, isFetching: refreshingDraw, refetch: refetchDraw } = useQuery<DrawInfo | null>({
     queryKey: ['latest-draw'],
     queryFn: async () => {
       const res = await fetch('/api/lotto/draws?limit=1')
@@ -790,6 +709,19 @@ export default function HomePage() {
     },
     staleTime: 60 * 60 * 1000,
     gcTime: 2 * 60 * 60 * 1000,
+  })
+
+  const { data: winStores = [] } = useQuery<WinStoreInfo[]>({
+    queryKey: ['home-win-stores', draw?.round],
+    queryFn: async () => {
+      if (!draw?.round) return []
+      const res = await fetch(`/api/lotto/draws/winstores?round=${draw.round}`)
+      if (!res.ok) return []
+      const data = await res.json()
+      return Array.isArray(data) ? data : []
+    },
+    enabled: !!draw?.round,
+    staleTime: 60 * 60 * 1000,
   })
 
   const { data: sajuProfile } = useQuery<SajuProfile | null>({
@@ -894,7 +826,10 @@ export default function HomePage() {
     queryClient.refetchQueries({ queryKey: ['home-saved'] })
   }
   const daysLeft = getDaysUntilDraw(new Date())
-  const personalHomeLoading = !!session && !homeDataReady
+  const autoWinStoreCount = winStores.filter(store => store.method?.includes('자동')).length
+  const manualWinStoreCount = winStores.filter(store => store.method?.includes('수동')).length
+  const hasWinStoreBreakdown = autoWinStoreCount + manualWinStoreCount > 0
+    && autoWinStoreCount + manualWinStoreCount === (draw?.winners1st ?? 0)
 
   const RANK_LABEL: Record<number, { text: string; bg: string }> = {
     1: { text: '1등', bg: '#dc1f1f' },
@@ -902,6 +837,90 @@ export default function HomePage() {
     3: { text: '3등', bg: '#e4a816' },
     4: { text: '4등', bg: '#007bc3' },
     5: { text: '5등', bg: '#129f97' },
+  }
+
+  const topActionStyle: React.CSSProperties = {
+    height: 38,
+    borderRadius: 10,
+    border: '1px solid #dce7ef',
+    background: '#fff',
+    color: '#16324f',
+    fontSize: 12,
+    fontWeight: 700,
+    textDecoration: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+  }
+
+  const homeHistoryGroups = (() => {
+    const combined = [
+      ...visibleSavedList.map(item => ({
+        item,
+        mode: 'AUTO' as const,
+        displayRound: resolveNumberDrawRound(item.drawRound, item.generatedDate ?? item.createdAt),
+      })),
+      ...visibleManualList.map(item => ({
+        item,
+        mode: 'MANUAL' as const,
+        displayRound: resolveNumberDrawRound(item.drawRound, item.generatedDate ?? item.createdAt),
+      })),
+    ].sort((left, right) => {
+      if (right.displayRound !== left.displayRound) return right.displayRound - left.displayRound
+      return new Date(right.item.createdAt).getTime() - new Date(left.item.createdAt).getTime()
+    })
+
+    const groups: Array<{ round: number; entries: HomeHistoryEntry[] }> = []
+
+    for (const entry of combined) {
+      let group = groups.find(item => item.round === entry.displayRound)
+      if (!group) {
+        group = { round: entry.displayRound, entries: [] }
+        groups.push(group)
+      }
+
+      const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+      const rowIndex = group.entries.length
+      group.entries.push({
+        item: entry.item,
+        mode: entry.mode,
+        rowLabel: alphabet[rowIndex] ?? String(rowIndex + 1),
+      })
+    }
+
+    return groups.slice(0, 4)
+  })()
+
+  const handleRefreshDraw = async () => {
+    await refetchDraw()
+    setToastMsg('최신 당첨정보를 다시 확인했습니다.')
+  }
+
+  const handleShareCurrentDraw = async () => {
+    if (!draw) return
+
+    const title = `제${draw.round}회 로또 당첨번호`
+    const text = `${title} ${draw.numbers.join(', ')} + 보너스 ${draw.bonus}`
+    const url = `${window.location.origin}/draw/${draw.round}`
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, text, url })
+        return
+      }
+
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(`${text}\n${url}`)
+        setToastMsg('당첨번호 링크를 복사했습니다.')
+        return
+      }
+
+      setToastMsg('공유 기능을 사용할 수 없습니다.')
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      setToastMsg('당첨번호 공유를 완료하지 못했습니다.')
+    }
   }
 
   return (
@@ -942,252 +961,217 @@ export default function HomePage() {
         <ReadingSheet onClose={() => setShowReadingSheet(false)} />
       )}
 
-      <div style={{
-        background: '#fff',
-        borderBottom: '1px solid #dcdcdc',
-        padding: '14px 16px 16px',
-        marginBottom: 8,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
-          <div>
-            <p style={{ fontSize: 15, fontWeight: 900, color: '#16324f', marginBottom: 4, letterSpacing: '-0.3px' }}>홈에서 바로 실행</p>
-            <p style={{ fontSize: 11, color: '#6b7b88', lineHeight: 1.5 }}>
-              자주 쓰는 기능을 한 화면에 모아서 바로 들어가게 바꿨습니다.
-            </p>
-          </div>
-          <div style={{
-            flexShrink: 0,
-            minWidth: 84,
-            padding: '8px 10px',
-            borderRadius: 12,
-            background: '#f0f7ff',
-            textAlign: 'right',
-          }}>
-            <p style={{ fontSize: 10, color: '#6c7a89', marginBottom: 3 }}>제 {round}회</p>
-            <p style={{ fontSize: 16, fontWeight: 900, color: '#007bc3', letterSpacing: '-0.3px' }}>
-              {daysLeft === 0 ? '오늘 추첨' : `D-${daysLeft}`}
-            </p>
-          </div>
-        </div>
+      <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', marginBottom: 8 }}>
+        <div style={{ padding: '12px 16px 14px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 60px', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <button
+              type="button"
+              onClick={handleRefreshDraw}
+              style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#12a3a8' }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 2v6h-6"/>
+                  <path d="M3 12a9 9 0 0 1 15.55-5.94L21 8"/>
+                  <path d="M3 22v-6h6"/>
+                  <path d="M21 12a9 9 0 0 1-15.55 5.94L3 16"/>
+                </svg>
+                <span style={{ fontSize: 10, fontWeight: 700 }}>{refreshingDraw ? '확인중' : '업데이트'}</span>
+              </div>
+            </button>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8 }}>
-          <HomeShortcut
-            title="QR확인"
-            subtitle="즉시 스캔"
-            accent="#007bc3"
-            href="/check"
-            icon={
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="7" height="7" rx="1"/>
-                <rect x="14" y="3" width="7" height="7" rx="1"/>
-                <rect x="3" y="14" width="7" height="7" rx="1"/>
-                <path d="M14 14h3v3M17 14v3h3M14 17v3M17 21h3"/>
-              </svg>
-            }
-          />
-          <HomeShortcut
-            title="판매점"
-            subtitle="명당 찾기"
-            accent="#0e8f6a"
-            href="/stores"
-            icon={
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-                <circle cx="12" cy="9" r="2.5"/>
-              </svg>
-            }
-          />
-          <HomeShortcut
-            title="운세"
-            subtitle="오늘 흐름"
-            accent="#9b4dca"
-            href="/fortune"
-            icon={
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="9"/>
-                <path d="M12 7v5l3 3"/>
-              </svg>
-            }
-          />
-          <HomeShortcut
-            title="리포트"
-            subtitle="회원 당첨"
-            accent="#d97706"
-            href="/report"
-            icon={
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 19h16"/>
-                <path d="M7 16V8"/>
-                <path d="M12 16V5"/>
-                <path d="M17 16v-4"/>
-              </svg>
-            }
-          />
-          <HomeShortcut
-            title="번호뽑기"
-            subtitle="자동 추천"
-            accent="#007bc3"
-            onClick={handleGenerate}
-            icon={
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 5v14M5 12h14"/>
-              </svg>
-            }
-          />
-          <HomeShortcut
-            title="수동입력"
-            subtitle="직접 선택"
-            accent="#007bc3"
-            onClick={() => setShowManualSheet(true)}
-            icon={
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5"/>
-                <path d="M17.5 2.5a2.121 2.121 0 0 1 3 3L12 14l-4 1 1-4 8.5-8.5z"/>
-              </svg>
-            }
-          />
-          <HomeShortcut
-            title="내이력"
-            subtitle={session ? '저장 번호' : '로그인'}
-            accent="#475569"
-            href={session ? '/history' : '/login'}
-            icon={
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 8v4l2.5 2.5"/>
-                <path d="M3.05 11a9 9 0 1 0 .5-3.5"/>
-                <path d="M3 4.5V8h3.5"/>
-              </svg>
-            }
-          />
-          <HomeShortcut
-            title={session ? '내정보' : '로그인'}
-            subtitle={session ? '사주·결제' : '회원 기능'}
-            accent="#475569"
-            href={session ? '/mypage' : '/login'}
-            icon={
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="8" r="3.5"/>
-                <path d="M5 20a7 7 0 0 1 14 0"/>
-              </svg>
-            }
-          />
-        </div>
-      </div>
-
-      {personalHomeLoading && (
-        <div style={{
-          background: '#fff',
-          borderBottom: '1px solid #dcdcdc',
-          padding: '12px 16px',
-          marginBottom: 8,
-        }}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: '#16324f', marginBottom: 4 }}>내 홈 정보를 정리하는 중</p>
-          <p style={{ fontSize: 11, color: '#7b8794', lineHeight: 1.5 }}>
-            첫 화면은 가볍게 열고, 사주 분석과 저장 번호는 바로 뒤에서 불러옵니다.
-          </p>
-        </div>
-      )}
-
-      {/* ── 사주 정보 카드 ── */}
-      {session && homeDataReady && (
-        <SajuCard
-          profile={sajuProfile ?? null}
-          onSetup={() => router.push('/mypage/edit')}
-          onEdit={() => router.push('/mypage/edit')}
-        />
-      )}
-
-      {/* ── AI 사주 풀이 버튼 ── */}
-      {session && homeDataReady && sajuProfile?.ilju && (
-        <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', padding: '0 16px 12px' }}>
-          <button
-            onClick={() => setShowReadingSheet(true)}
-            style={{
-              width: '100%', height: 36,
-              background: 'linear-gradient(135deg, #1a1a2e 0%, #8f35c8 100%)',
-              border: 'none', borderRadius: 4,
-              color: '#fff', fontSize: 12, fontWeight: 700,
-              cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-            }}
-          >
-            🔮 AI 사주 풀이 받기
-          </button>
-        </div>
-      )}
-
-      {homeDataReady && <SocialProofCard />}
-
-      {/* ── 최신 당첨번호 (클릭 → 상세) ── */}
-      <Link href={draw ? `/draw/${draw.round}` : `/draw/${round - 1}`} style={{ textDecoration: 'none', display: 'block' }}>
-        <div style={{ background: '#fff', marginBottom: 8, borderBottom: '1px solid #dcdcdc' }}>
-          <div style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '10px 16px 8px',
-          }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#333' }}>제{draw?.round ?? round - 1}회 당첨번호</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              {draw?.drawDate && (
-                <span style={{ fontSize: 11, color: '#888' }}>{draw.drawDate.slice(0, 10).replace(/-/g, '.')}</span>
-              )}
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" strokeLinecap="round">
-                <path d="M9 18l6-6-6-6"/>
-              </svg>
+            <div style={{ textAlign: 'center' }}>
+              <p style={{ fontSize: 18, fontWeight: 900, color: '#16324f', marginBottom: 4, letterSpacing: '-0.4px' }}>
+                제{draw?.round ?? round - 1}회 당첨번호
+              </p>
+              <p style={{ fontSize: 12, color: '#7b8794' }}>{formatDrawDateLabel(draw?.drawDate)}</p>
             </div>
+
+            <Link href="/check" style={{ textDecoration: 'none', color: '#11a7b3' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="7" height="7" rx="1"/>
+                  <rect x="14" y="3" width="7" height="7" rx="1"/>
+                  <rect x="3" y="14" width="7" height="7" rx="1"/>
+                  <path d="M14 14h3v3M17 14v3h3M14 17v3M17 21h3"/>
+                </svg>
+                <span style={{ fontSize: 10, fontWeight: 700 }}>QR코드</span>
+              </div>
+            </Link>
           </div>
-          <div style={{ padding: '4px 16px 10px' }}>
+
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '6px 0 12px' }}>
             {loadingDraw ? (
-              <div style={{ display: 'flex', gap: 5 }}>
-                {[...Array(7)].map((_, i) => (
-                  <div key={i} className="skeleton" style={{ width: 32, height: 32, borderRadius: '50%' }} />
+              <div style={{ display: 'flex', gap: 6 }}>
+                {[...Array(7)].map((_, index) => (
+                  <div key={index} className="skeleton" style={{ width: 34, height: 34, borderRadius: '50%' }} />
                 ))}
               </div>
             ) : draw ? (
-              <>
-                <LottoBallSet numbers={draw.numbers} bonus={draw.bonus} size="sm" />
-                {/* 1등/2등 당첨 정보 */}
-                <div style={{ display: 'flex', gap: 10, marginTop: 8, flexWrap: 'wrap' }}>
-                  {draw.winners1st != null && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{
-                        fontSize: 10, fontWeight: 700, color: '#fff',
-                        background: '#dc1f1f', padding: '1px 6px', borderRadius: 3,
-                      }}>1등</span>
-                      <span style={{ fontSize: 11, color: '#555' }}>
-                        {draw.winners1st}명
-                      </span>
-                      {draw.prize1st && (
-                        <span style={{ fontSize: 11, color: '#333', fontWeight: 600 }}>
-                          · {formatPrize(draw.prize1st)}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  {draw.winners2nd != null && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{
-                        fontSize: 10, fontWeight: 700, color: '#fff',
-                        background: '#e03f0e', padding: '1px 6px', borderRadius: 3,
-                      }}>2등</span>
-                      <span style={{ fontSize: 11, color: '#555' }}>
-                        {draw.winners2nd}명
-                      </span>
-                      {draw.prize2nd && (
-                        <span style={{ fontSize: 11, color: '#333', fontWeight: 600 }}>
-                          · {formatPrize(draw.prize2nd)}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  <span style={{ fontSize: 11, color: '#bbb', marginLeft: 'auto' }}>탭하면 판매점 정보 →</span>
-                </div>
-              </>
+              <LottoBallSet numbers={draw.numbers} bonus={draw.bonus} size="sm" />
             ) : (
-              <p style={{ fontSize: 12, color: '#888', padding: '6px 0' }}>당첨번호 데이터가 없습니다</p>
+              <p style={{ fontSize: 12, color: '#8b97a3' }}>당첨번호를 불러오지 못했습니다.</p>
             )}
           </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 12 }}>
+            <Link href={draw ? `/draw/${draw.round}` : `/draw/${round - 1}`} style={topActionStyle}>회차 상세</Link>
+            <Link href="/check" style={topActionStyle}>QR 당첨 확인</Link>
+            <button type="button" onClick={handleShareCurrentDraw} style={topActionStyle}>당첨번호 공유</button>
+          </div>
+
+          <div style={{ border: '1px solid #e3ebf2', borderRadius: 14, overflow: 'hidden', background: '#f9fbfd' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'center', padding: '12px 14px', borderBottom: '1px solid #e3ebf2' }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#4b5b6b' }}>1등 당첨금액</p>
+              <p style={{ fontSize: 17, fontWeight: 900, color: '#16324f', letterSpacing: '-0.3px' }}>
+                {draw?.prize1st ? formatPrize(draw.prize1st) : '-'}
+              </p>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'center', padding: '12px 14px' }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#4b5b6b' }}>1등 당첨복권</p>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ fontSize: 16, fontWeight: 900, color: '#16324f', letterSpacing: '-0.3px' }}>
+                  {draw?.winners1st != null ? `${draw.winners1st}개` : '-'}
+                </p>
+                {hasWinStoreBreakdown && (
+                  <p style={{ fontSize: 11, color: '#7b8794', marginTop: 2 }}>
+                    자동 {autoWinStoreCount} · 수동 {manualWinStoreCount}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
-      </Link>
+      </div>
+
+      <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', marginBottom: 8 }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 10,
+          padding: '12px 14px',
+          background: 'linear-gradient(90deg, #16b8c5 0%, #1cc2ae 100%)',
+          color: '#fff',
+        }}>
+          <div>
+            <p style={{ fontSize: 16, fontWeight: 900, marginBottom: 3, letterSpacing: '-0.3px' }}>내 로또 복권 히스토리</p>
+            <p style={{ fontSize: 11, opacity: 0.92 }}>회차별로 빠르게 확인하고 상세 이력으로 이동</p>
+          </div>
+          <Link
+            href={session ? '/history' : '/login'}
+            style={{
+              height: 30,
+              padding: '0 12px',
+              borderRadius: 999,
+              border: '1px solid rgba(255,255,255,0.35)',
+              background: 'rgba(255,255,255,0.16)',
+              color: '#fff',
+              fontSize: 11,
+              fontWeight: 700,
+              textDecoration: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {session ? '전체보기' : '로그인'}
+          </Link>
+        </div>
+
+        {!session ? (
+          <div style={{ padding: '20px 16px 22px', textAlign: 'center' }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#16324f', marginBottom: 6 }}>저장 번호와 QR 결과를 한곳에서 보세요</p>
+            <p style={{ fontSize: 12, color: '#7b8794', lineHeight: 1.65, marginBottom: 16 }}>
+              로그인하면 자동 추천 번호와 수동 입력 번호를 회차별 히스토리로 정리해드립니다.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }}>
+              <Link href="/register" style={{
+                height: 38,
+                padding: '0 18px',
+                borderRadius: 999,
+                background: '#007bc3',
+                color: '#fff',
+                fontSize: 12,
+                fontWeight: 700,
+                textDecoration: 'none',
+                display: 'flex',
+                alignItems: 'center',
+              }}>회원가입</Link>
+              <Link href="/login" style={{
+                height: 38,
+                padding: '0 18px',
+                borderRadius: 999,
+                border: '1px solid #d7dfe7',
+                background: '#fff',
+                color: '#4b5b6b',
+                fontSize: 12,
+                fontWeight: 700,
+                textDecoration: 'none',
+                display: 'flex',
+                alignItems: 'center',
+              }}>로그인</Link>
+            </div>
+          </div>
+        ) : !homeDataReady || loadingList || loadingManual ? (
+          <div style={{ padding: '12px' }}>
+            {[...Array(2)].map((_, index) => (
+              <div key={index} className="skeleton" style={{ height: 130, borderRadius: 14, marginBottom: index === 1 ? 0 : 12 }} />
+            ))}
+          </div>
+        ) : (
+          <>
+            <div style={{ padding: '10px 12px 0' }}>
+              <HistoryScopeToggle value={historyFilter} currentRound={round} onChange={setHistoryFilter} />
+            </div>
+
+            {homeHistoryGroups.length > 0 ? (
+              <div style={{ padding: '12px 12px 2px' }}>
+                {homeHistoryGroups.map(group => (
+                  <HomeHistoryRoundCard
+                    key={group.round}
+                    round={group.round}
+                    entries={group.entries}
+                    rankLabel={RANK_LABEL}
+                    onOpenHistory={() => router.push('/history')}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div style={{ padding: '20px 16px 22px', textAlign: 'center' }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: '#16324f', marginBottom: 6 }}>아직 정리된 복권 히스토리가 없습니다</p>
+                <p style={{ fontSize: 12, color: '#7b8794', lineHeight: 1.65, marginBottom: 14 }}>
+                  자동 추천 번호를 저장하거나 수동 번호를 입력하면 이 화면에 회차별로 깔끔하게 정리됩니다.
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }}>
+                  <button type="button" onClick={handleGenerate} style={{
+                    height: 38,
+                    padding: '0 18px',
+                    borderRadius: 999,
+                    border: 'none',
+                    background: '#007bc3',
+                    color: '#fff',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}>번호 뽑기</button>
+                  <button type="button" onClick={() => setShowManualSheet(true)} style={{
+                    height: 38,
+                    padding: '0 18px',
+                    borderRadius: 999,
+                    border: '1px solid #d7dfe7',
+                    background: '#fff',
+                    color: '#4b5b6b',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}>수동 입력</button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
       {/* ── 현재 회차 + 번호뽑기 ── */}
       <div style={{
@@ -1248,218 +1232,42 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* ── 내 사주 추천 번호 ── */}
-      {!session ? (
-        <>
-          <h3 style={{
-            position: 'relative', height: 53, lineHeight: '51px',
-            margin: 0, padding: '0 10px',
-            fontWeight: 700, fontSize: 15, color: '#333',
-            borderTop: '1px solid #dcdcdc', borderBottom: '1px solid #dcdcdc',
-            background: '#f7f7f7',
-          }}>
-            내 사주 추천 번호
-          </h3>
-        <div style={{
-          background: '#fff', borderBottom: '1px solid #dcdcdc',
-          padding: '32px 20px', textAlign: 'center', marginBottom: 8,
-        }}>
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5" strokeLinecap="round"
-            style={{ display: 'block', margin: '0 auto 12px' }}>
-            <rect x="3" y="11" width="18" height="11" rx="2"/>
-            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-          </svg>
-          <p style={{ fontSize: 14, fontWeight: 600, color: '#333', marginBottom: 6 }}>번호 저장하고 당첨 알림 받기</p>
-          <p style={{ fontSize: 12, color: '#888', lineHeight: 1.6, marginBottom: 18 }}>
-            로그인하면 사주 기반 번호 생성과<br/>당첨 여부 이력을 관리할 수 있어요
-          </p>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-            <Link href="/register" style={{
-              height: 40, padding: '0 24px', lineHeight: '38px',
-              background: '#007bc3', color: '#fff', fontSize: 13, fontWeight: 600,
-              textDecoration: 'none', border: '1px solid #005a94', borderRadius: 2,
-            }}>회원가입</Link>
-            <Link href="/login" style={{
-              height: 40, padding: '0 24px', lineHeight: '38px',
-              background: '#fff', color: '#444', fontSize: 13, fontWeight: 500,
-              textDecoration: 'none', border: '1px solid #dcdcdc', borderRadius: 2,
-            }}>로그인</Link>
-          </div>
-        </div>
-        </>
-      ) : homeDataReady && (
-        <>
-          <h3 style={{
-            position: 'relative', height: 53, lineHeight: '51px',
-            margin: 0, padding: '0 10px',
-            fontWeight: 700, fontSize: 15, color: '#333',
-            borderTop: '1px solid #dcdcdc', borderBottom: '1px solid #dcdcdc',
-            background: '#f7f7f7',
-          }}>
-            내 사주 추천 번호
-            <Link href="/history" style={{
-              position: 'absolute', right: 10, top: '50%', marginTop: -12,
-              padding: '4px 10px 4px 0', fontSize: 11, fontWeight: 500, color: '#888',
-              textDecoration: 'none',
-              background: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='9' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M9 18l6-6-6-6'/%3E%3C/svg%3E") right center no-repeat`,
-            }}>
-              전체보기
-            </Link>
-          </h3>
-
-          <HistoryScopeToggle value={historyFilter} currentRound={round} onChange={setHistoryFilter} />
-
-      {loadingList ? (
-        <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', marginBottom: 8 }}>
-          {[...Array(3)].map((_, i) => (
-            <div key={i} style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div className="skeleton" style={{ width: 44, height: 12, borderRadius: 2 }} />
-              <div style={{ display: 'flex', gap: 4 }}>
-                {[...Array(6)].map((_, j) => (
-                  <div key={j} className="skeleton" style={{ width: 26, height: 26, borderRadius: '50%' }} />
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : visibleSavedList.length > 0 ? (
-        <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', marginBottom: 8 }}>
-          <p style={{ fontSize: 11, color: '#888', padding: '6px 16px 2px', borderBottom: '1px solid #f5f5f5' }}>
-            💡 번호를 탭하면 사주 근거를 볼 수 있어요
-          </p>
-          {visibleSavedList.map((item, i) => (
-            <NumberRow
-              key={item.id}
-              item={item}
-              isLast={i === visibleSavedList.length - 1}
-              yongsin={sajuProfile?.yongsin ?? null}
-              rankLabel={RANK_LABEL}
-            />
-          ))}
-          <div style={{ padding: '12px 16px', borderTop: '1px solid #f0f0f0' }}>
-            <button
-              onClick={handleGenerate}
-              style={{
-                width: '100%', height: 40, background: '#fff',
-                border: '1px solid #007bc3', color: '#007bc3',
-                fontSize: 13, fontWeight: 600, cursor: 'pointer', borderRadius: 2,
-              }}
-            >
-              + 번호 추가 생성하기
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div style={{
-          background: '#fff', borderBottom: '1px solid #dcdcdc',
-          padding: '32px 20px', textAlign: 'center', marginBottom: 8,
-        }}>
-          <p style={{ fontSize: 13, color: '#888', marginBottom: 16, lineHeight: 1.6 }}>
-            {historyFilter === 'current'
-              ? `제${round}회 구매 가능 번호가 없습니다.`
-              : '아직 생성된 번호가 없습니다.'}
-            <br/>
-            {historyFilter === 'current' ? '필터를 전체 이력으로 바꾸거나 새 번호를 뽑아보세요!' : '사주 기반 번호를 뽑아보세요!'}
-          </p>
-          <button onClick={handleGenerate} style={{
-            height: 40, padding: '0 28px',
-            background: '#007bc3', border: '1px solid #005a94',
-            color: '#fff', fontSize: 13, fontWeight: 600,
-            cursor: 'pointer', borderRadius: 2,
-          }}>번호 뽑기</button>
-        </div>
-      )}
-        </>
-      )}
-
-      {/* ── 내 수동 번호 ── */}
-      {homeDataReady && <div style={{ padding: '0 16px', marginBottom: 8 }}><AdSlot /></div>}
+      {/* ── 사주 정보 카드 ── */}
       {session && homeDataReady && (
-        <>
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            height: 44, padding: '0 12px 0 10px',
-            borderTop: '1px solid #dcdcdc', borderBottom: '1px solid #dcdcdc',
-            background: '#f7f7f7',
-          }}>
-            <span style={{ fontWeight: 700, fontSize: 15, color: '#333' }}>내 수동 번호</span>
-            <button
-              onClick={() => setShowManualSheet(true)}
-              style={{
-                height: 30, padding: '0 12px',
-                background: '#007bc3', border: 'none',
-                color: '#fff', fontSize: 12, fontWeight: 700,
-                cursor: 'pointer', borderRadius: 4,
-                display: 'flex', alignItems: 'center', gap: 3,
-              }}
-            >
-              <span style={{ fontSize: 14, lineHeight: 1 }}>+</span>
-              입력
-            </button>
-          </div>
-
-          <HistoryScopeToggle value={historyFilter} currentRound={round} onChange={setHistoryFilter} />
-
-          {loadingManual ? (
-            <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', marginBottom: 8 }}>
-              {[...Array(2)].map((_, i) => (
-                <div key={i} style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0', display: 'flex', gap: 8 }}>
-                  <div className="skeleton" style={{ width: 44, height: 12, borderRadius: 2 }} />
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    {[...Array(6)].map((_, j) => (
-                      <div key={j} className="skeleton" style={{ width: 26, height: 26, borderRadius: '50%' }} />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : visibleManualList.length > 0 ? (
-            <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', marginBottom: 8 }}>
-              <p style={{ fontSize: 11, color: '#888', padding: '6px 16px 2px', borderBottom: '1px solid #f5f5f5' }}>
-                ✏️ 직접 입력한 번호 · 탭하면 당첨이력을 확인할 수 있어요
-              </p>
-              {visibleManualList.map((item, i) => (
-                <NumberRow
-                  key={item.id}
-                  item={item}
-                  isLast={i === visibleManualList.length - 1}
-                  yongsin={null}
-                  rankLabel={RANK_LABEL}
-                />
-              ))}
-              <div style={{ padding: '12px 16px', borderTop: '1px solid #f0f0f0' }}>
-                <button
-                  onClick={() => setShowManualSheet(true)}
-                  style={{
-                    width: '100%', height: 40, background: '#fff',
-                    border: '1px solid #007bc3', color: '#007bc3',
-                    fontSize: 13, fontWeight: 600, cursor: 'pointer', borderRadius: 2,
-                  }}
-                >+ 번호 추가 입력하기</button>
-              </div>
-            </div>
-          ) : (
-            <div style={{
-              background: '#fff', borderBottom: '1px solid #dcdcdc',
-              padding: '24px 20px', textAlign: 'center', marginBottom: 8,
-            }}>
-              <p style={{ fontSize: 13, color: '#888', marginBottom: 14, lineHeight: 1.6 }}>
-                {historyFilter === 'current'
-                  ? `제${round}회 구매 가능 수동 번호가 없습니다.`
-                  : '직접 고른 번호를 저장하고'}
-                <br/>
-                {historyFilter === 'current' ? '전체 이력으로 전환하거나 새로 입력해보세요' : '과거 당첨이력을 확인해보세요'}
-              </p>
-              <button onClick={() => setShowManualSheet(true)} style={{
-                height: 40, padding: '0 28px',
-                background: '#007bc3', border: 'none',
-                color: '#fff', fontSize: 13, fontWeight: 600,
-                cursor: 'pointer', borderRadius: 2,
-              }}>수동 번호 입력하기</button>
-            </div>
-          )}
-        </>
+        <SajuCard
+          profile={sajuProfile ?? null}
+          onSetup={() => router.push('/mypage/edit')}
+          onEdit={() => router.push('/mypage/edit')}
+        />
       )}
+
+      {/* ── AI 사주 풀이 버튼 ── */}
+      {session && homeDataReady && sajuProfile?.ilju && (
+        <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', padding: '0 16px 12px', marginBottom: 8 }}>
+          <button
+            onClick={() => setShowReadingSheet(true)}
+            style={{
+              width: '100%',
+              height: 38,
+              background: 'linear-gradient(135deg, #1a1a2e 0%, #8f35c8 100%)',
+              border: 'none',
+              borderRadius: 10,
+              color: '#fff',
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 5,
+            }}
+          >
+            🔮 AI 사주 풀이 받기
+          </button>
+        </div>
+      )}
+
+      {homeDataReady && <SocialProofCard />}
 
       {/* ── 광고 ── */}
       {homeDataReady && <div style={{ padding: '0 16px', marginBottom: 8 }}>
