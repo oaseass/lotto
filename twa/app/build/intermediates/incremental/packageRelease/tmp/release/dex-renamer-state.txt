@@ -1,0 +1,4 @@
+#Sat Apr 18 12:59:57 KST 2026
+base.0=D\:\\sajulotto\\twa\\app\\build\\intermediates\\dex\\release\\minifyReleaseWithR8\\classes.dex
+renamed.0=classes.dex
+path.0=classes.dex

@@ -1,10 +1,38 @@
 'use client'
 
-import { SessionProvider } from 'next-auth/react'
+import { SessionProvider, signOut } from 'next-auth/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
 import type { Session } from 'next-auth'
 import { PushPermission } from '@/components/push/PushPermission'
+
+/**
+ * TWA(Trusted Web Activity)에서 앱이 열릴 때
+ * Chrome 브라우저의 세션이 공유되는 것을 방지하기 위해
+ * 첫 실행 시 세션을 클리어하고 로그인 페이지로 보냄
+ */
+function TwaSessionGuard() {
+  useEffect(() => {
+    // standalone 모드(TWA/PWA)인지 확인
+    const isStandalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone === true
+
+    if (!isStandalone) return
+
+    // TWA 첫 실행 플래그 확인 (sessionStorage는 앱 종료 시 초기화됨)
+    const key = 'twa_session_initialized'
+    if (sessionStorage.getItem(key)) return
+
+    // 첫 실행 표시
+    sessionStorage.setItem(key, '1')
+
+    // 기존 세션이 있으면 로그아웃 처리
+    signOut({ redirect: true, callbackUrl: '/login' })
+  }, [])
+
+  return null
+}
 
 function SyncInitializer() {
   useEffect(() => {
@@ -73,6 +101,7 @@ export function Providers({ children, session }: { children: React.ReactNode; se
   return (
     <SessionProvider session={session}>
       <QueryClientProvider client={queryClient}>
+        <TwaSessionGuard />
         <SyncInitializer />
         <PushPermission />
         <style>{`
