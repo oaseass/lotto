@@ -28,7 +28,8 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
   const doneRef = useRef(false)
 
   useEffect(() => {
-    void startCamera(false)
+    setNeedsManualStart(true)
+    setDebugInfo('버튼을 눌러 카메라 권한을 허용해주세요.')
     return () => stopCamera()
   }, [])
 
@@ -138,7 +139,7 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
 
   function getCameraErrorMessage(error: unknown): string {
     if (error instanceof DOMException) {
-      if (error.name === 'NotAllowedError') return '카메라 권한이 꺼져 있습니다. 브라우저나 앱 설정에서 카메라를 허용한 뒤 다시 시도해주세요.'
+      if (error.name === 'NotAllowedError') return '카메라 권한 요청이 거부되었습니다. 아래 버튼을 눌러 다시 요청하거나 앱 설정에서 카메라를 허용해주세요.'
       if (error.name === 'NotReadableError') return '다른 앱이 카메라를 사용 중입니다. 카메라 앱을 종료하고 다시 시도해주세요.'
       if (error.name === 'NotFoundError') return '사용 가능한 카메라를 찾지 못했습니다.'
       if (error.name === 'AbortError') return '카메라 시작이 중단되었습니다. 다시 시도해주세요.'
@@ -296,22 +297,32 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: 20,
           }}>
-            <button
-              onClick={() => void startCamera(true)}
-              style={{
-                height: 42,
-                padding: '0 16px',
-                borderRadius: 999,
-                border: 'none',
-                background: '#f5c842',
-                color: '#222',
+            <div style={{ textAlign: 'center' }}>
+              <p style={{
+                margin: '0 0 12px',
+                color: '#fff',
                 fontSize: 13,
-                fontWeight: 800,
-                cursor: 'pointer',
-              }}
-            >
-              카메라 켜기
-            </button>
+                fontWeight: 700,
+              }}>
+                카메라 사용을 위해 권한 허용이 필요합니다
+              </p>
+              <button
+                onClick={() => void startCamera(true)}
+                style={{
+                  height: 42,
+                  padding: '0 16px',
+                  borderRadius: 999,
+                  border: 'none',
+                  background: '#f5c842',
+                  color: '#222',
+                  fontSize: 13,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >
+                카메라 권한 요청
+              </button>
+            </div>
           </div>
         )}
 
