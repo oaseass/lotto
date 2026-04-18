@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 
 const SHOW_DURATION = 1800
 const FADE_DURATION = 400
+const SKIP_SPLASH_ONCE_KEY = 'skip-splash-once'
 
 export function SplashScreen() {
   const [visible, setVisible] = useState(true)
@@ -11,6 +12,13 @@ export function SplashScreen() {
   const [imgReady, setImgReady] = useState(false)
 
   useEffect(() => {
+    const shouldSkipOnce = sessionStorage.getItem(SKIP_SPLASH_ONCE_KEY) === 'true'
+    if (shouldSkipOnce) {
+      sessionStorage.removeItem(SKIP_SPLASH_ONCE_KEY)
+      setVisible(false)
+      return
+    }
+
     const entries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[]
     const navType = entries.length > 0
       ? entries[0].type

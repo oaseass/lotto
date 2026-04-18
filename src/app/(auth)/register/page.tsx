@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { signIn } from 'next-auth/react'
 
+const SKIP_SPLASH_ONCE_KEY = 'skip-splash-once'
+
 export default function RegisterPage() {
   const router = useRouter()
   const [step, setStep] = useState<'basic' | 'saju'>('basic')
@@ -22,6 +24,7 @@ export default function RegisterPage() {
 
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isKakaoLoading, setIsKakaoLoading] = useState(false)
 
   const handleBasicSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -100,6 +103,27 @@ export default function RegisterPage() {
     }
   }
 
+  const handleKakaoSignIn = async () => {
+    if (isLoading || isKakaoLoading) return
+
+    setError('')
+    setIsKakaoLoading(true)
+
+    sessionStorage.setItem(SKIP_SPLASH_ONCE_KEY, 'true')
+
+    await new Promise<void>(resolve => {
+      requestAnimationFrame(() => resolve())
+    })
+
+    try {
+      await signIn('kakao', { callbackUrl: '/home' })
+    } catch {
+      sessionStorage.removeItem(SKIP_SPLASH_ONCE_KEY)
+      setIsKakaoLoading(false)
+      setError('카카오 로그인 연결에 실패했습니다. 다시 시도해주세요')
+    }
+  }
+
   const inputStyle: React.CSSProperties = {
     width: '100%', height: 42, padding: '0 10px',
     fontSize: 13, color: '#333',
@@ -133,21 +157,54 @@ export default function RegisterPage() {
               {/* 카카오 간편가입 */}
               <button
                 type="button"
-                onClick={() => signIn('kakao', { callbackUrl: '/home' })}
+                disabled={isLoading || isKakaoLoading}
+                onClick={() => void handleKakaoSignIn()}
                 style={{
                   width: '100%', height: 44,
                   background: '#FEE500', border: 'none',
-                  borderRadius: 4, cursor: 'pointer',
+                  borderRadius: 4,
+                  cursor: isLoading || isKakaoLoading ? 'wait' : 'pointer',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                   fontSize: 14, fontWeight: 700, color: '#191919',
                   marginBottom: 16,
+                  opacity: isLoading || isKakaoLoading ? 0.7 : 1,
                 }}
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="#191919">
-                  <path d="M12 3C6.477 3 2 6.477 2 11c0 2.9 1.573 5.453 3.965 7.028L5 21l3.357-1.763C9.396 19.71 10.67 20 12 20c5.523 0 10-3.477 10-9S17.523 3 12 3z"/>
-                </svg>
-                카카오로 간편가입
+                {isKakaoLoading ? (
+                  <>
+                    <span style={{
+                      width: 16,
+                      height: 16,
+                      borderRadius: '50%',
+                      border: '2px solid rgba(25,25,25,0.22)',
+                      borderTopColor: '#191919',
+                      animation: 'spin 0.8s linear infinite',
+                    }} />
+                    로그인 중입니다...
+                  </>
+                ) : (
+                  <>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#191919">
+                      <path d="M12 3C6.477 3 2 6.477 2 11c0 2.9 1.573 5.453 3.965 7.028L5 21l3.357-1.763C9.396 19.71 10.67 20 12 20c5.523 0 10-3.477 10-9S17.523 3 12 3z"/>
+                    </svg>
+                    카카오로 간편가입
+                  </>
+                )}
               </button>
+              {isKakaoLoading && (
+                <div style={{
+                  marginBottom: 16,
+                  padding: '10px 12px',
+                  borderRadius: 4,
+                  background: '#fffbea',
+                  border: '1px solid #f1dd8f',
+                  fontSize: 12,
+                  color: '#6d5500',
+                  textAlign: 'center',
+                }}>
+                  카카오 로그인 중입니다. 잠시만 기다려주세요.
+                </div>
+              )}
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                 <div style={{ flex: 1, height: 1, background: '#e0e0e0' }} />
@@ -212,6 +269,7 @@ export default function RegisterPage() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 10 }}>
                 <div>
                   <label style={{ fontSize: 11, color: '#888', display: 'block', marginBottom: 3 }}>생년 *</label>
+              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
                   <input type="number" value={birthYear} onChange={e => setBirthYear(e.target.value)} placeholder="1990" min="1900" max="2020" required style={inputStyle} />
                 </div>
                 <div>

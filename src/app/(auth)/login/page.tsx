@@ -5,12 +5,15 @@ import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
+const SKIP_SPLASH_ONCE_KEY = 'skip-splash-once'
+
 export default function LoginPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isKakaoLoading, setIsKakaoLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,6 +28,27 @@ export default function LoginPage() {
       }
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleKakaoSignIn = async () => {
+    if (isLoading || isKakaoLoading) return
+
+    setError('')
+    setIsKakaoLoading(true)
+
+    sessionStorage.setItem(SKIP_SPLASH_ONCE_KEY, 'true')
+
+    await new Promise<void>(resolve => {
+      requestAnimationFrame(() => resolve())
+    })
+
+    try {
+      await signIn('kakao', { callbackUrl: '/home' })
+    } catch {
+      sessionStorage.removeItem(SKIP_SPLASH_ONCE_KEY)
+      setIsKakaoLoading(false)
+      setError('카카오 로그인 연결에 실패했습니다. 다시 시도해주세요')
     }
   }
 
@@ -84,12 +108,13 @@ export default function LoginPage() {
               </div>
             )}
 
-            <button type="submit" disabled={isLoading} style={{
+            <button type="submit" disabled={isLoading || isKakaoLoading} style={{
               width: '100%', height: 43,
               background: isLoading ? '#7ab5e0' : '#007bc3',
               border: '1px solid #005a94',
               color: '#fff', fontSize: 15, fontWeight: 600,
-              cursor: isLoading ? 'wait' : 'pointer', borderRadius: 2,
+              cursor: isLoading || isKakaoLoading ? 'wait' : 'pointer', borderRadius: 2,
+              opacity: isKakaoLoading ? 0.6 : 1,
             }}>
               {isLoading ? '로그인 중...' : '로그인'}
             </button>
@@ -102,19 +127,52 @@ export default function LoginPage() {
               <div style={{ flex: 1, height: 1, background: '#e0e0e0' }} />
             </div>
             <button
-              onClick={() => signIn('kakao', { callbackUrl: '/home' })}
+              type="button"
+              disabled={isLoading || isKakaoLoading}
+              onClick={() => void handleKakaoSignIn()}
               style={{
                 width: '100%', height: 43,
                 background: '#FEE500', border: '1px solid #E6CF00',
                 color: '#3C1E1E', fontSize: 14, fontWeight: 600,
-                cursor: 'pointer', borderRadius: 2,
+                cursor: isLoading || isKakaoLoading ? 'wait' : 'pointer', borderRadius: 2,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                opacity: isLoading || isKakaoLoading ? 0.7 : 1,
               }}>
-              <svg width="18" height="18" viewBox="0 0 18 18">
-                <path d="M9 1C4.58 1 1 3.914 1 7.5c0 2.29 1.52 4.3 3.81 5.45l-.97 3.6 4.19-2.76c.63.09 1.28.14 1.97.14 4.42 0 8-2.914 8-6.5S13.42 1 9 1z" fill="#3C1E1E"/>
-              </svg>
-              카카오로 로그인
+              {isKakaoLoading ? (
+                <>
+                  <span style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: '50%',
+                    border: '2px solid rgba(60,30,30,0.22)',
+                    borderTopColor: '#3C1E1E',
+                    animation: 'spin 0.8s linear infinite',
+                  }} />
+                  로그인 중입니다...
+                </>
+              ) : (
+                <>
+                  <svg width="18" height="18" viewBox="0 0 18 18">
+                    <path d="M9 1C4.58 1 1 3.914 1 7.5c0 2.29 1.52 4.3 3.81 5.45l-.97 3.6 4.19-2.76c.63.09 1.28.14 1.97.14 4.42 0 8-2.914 8-6.5S13.42 1 9 1z" fill="#3C1E1E"/>
+                  </svg>
+                  카카오로 로그인
+                </>
+              )}
             </button>
+            {isKakaoLoading && (
+              <div style={{
+                marginTop: 10,
+                padding: '10px 12px',
+                borderRadius: 2,
+                background: '#fffbea',
+                border: '1px solid #f1dd8f',
+                fontSize: 12,
+                color: '#6d5500',
+                textAlign: 'center',
+              }}>
+                카카오 로그인 중입니다. 잠시만 기다려주세요.
+              </div>
+            )}
           </div>
         </div>
 
@@ -135,6 +193,7 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }
