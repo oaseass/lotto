@@ -2,12 +2,21 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
+import { resolveNumberDrawRound } from '@/lib/lotto/dhlottery'
 import { LottoBall, LottoBallSet } from '@/components/lotto/LottoBall'
 import { AdSlot } from '@/components/ui/AdSlot'
 
 type Tab = 'numbers' | 'scans'
+interface SavedHistoryNumber {
+  id: string
+  numbers: number[]
+  drawRound: number | null
+  generatedDate?: string
+  createdAt: string
+  isManual: boolean
+}
 
 export default function HistoryPage() {
   const { data: session, status } = useSession()
@@ -202,23 +211,49 @@ function Chip({ label, active, onClick }: { label: string; active: boolean; onCl
   )
 }
 
+function actionButtonStyle(active: boolean, disabled: boolean, danger = false): React.CSSProperties {
+  return {
+    height: 32,
+    padding: '0 12px',
+    borderRadius: 999,
+    border: danger
+      ? `1px solid ${disabled ? '#f2d8d8' : '#f0b7b7'}`
+      : `1px solid ${active ? '#129f97' : '#d7dde4'}`,
+    background: danger
+      ? (disabled ? '#fff7f7' : '#fff2f2')
+      : (active ? '#e8faf6' : '#fff'),
+    color: danger ? (disabled ? '#d7a8a8' : '#c24141') : (active ? '#129f97' : '#55606d'),
+    fontSize: 12,
+    fontWeight: 700,
+    cursor: disabled ? 'default' : 'pointer',
+  }
+}
+
 // ── 저장 번호 ──────────────────────────────────────────────
 const PAGE_SIZE = 10
 
 function SavedNumbers() {
+  const queryClient = useQueryClient()
   const [filterYear, setFilterYear] = useState<number | null>(null)
   const [filterMonth, setFilterMonth] = useState<number | null>(null)
   const [filterType, setFilterType] = useState<string>('all')
   const [quickPeriod, setQuickPeriod] = useState<QuickPeriod>(null)
   const [page, setPage] = useState(1)
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  // 필터 바뀌면 첫 페이지로
-  useEffect(() => { setPage(1) }, [filterYear, filterMonth, filterType, quickPeriod])
+  useEffect(() => {
+    setPage(1)
+    setSelectedIds([])
+  }, [filterYear, filterMonth, filterType, quickPeriod])
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading } = useQuery<SavedHistoryNumber[]>({
     queryKey: ['savedNumbers'],
     queryFn: async () => {
       const res = await fetch('/api/lotto/my-numbers')
+      if (!res.ok) return []
       return res.json()
     },
     staleTime: 60 * 1000,
@@ -234,34 +269,118 @@ function SavedNumbers() {
   const thisYearStart = new Date(now.getFullYear(), 0, 1)
 
   const years: number[] = Array.from(
-    new Set(data.map((d: any) => new Date(d.createdAt).getFullYear()))
-  ).sort((a: any, b: any) => b - a) as number[]
+    new Set(data.map(item => new Date(item.createdAt).getFullYear()))
+  ).sort((a, b) => b - a)
 
   const months: number[] = filterYear
     ? Array.from(
         new Set(
           data
-            .filter((d: any) => new Date(d.createdAt).getFullYear() === filterYear)
-            .map((d: any) => new Date(d.createdAt).getMonth() + 1)
+            .filter(item => new Date(item.createdAt).getFullYear() === filterYear)
+            .map(item => new Date(item.createdAt).getMonth() + 1)
         )
-      ).sort((a: any, b: any) => a - b) as number[]
+      ).sort((a, b) => a - b)
     : []
 
-  const filtered = data.filter((item: any) => {
-    const d = new Date(item.createdAt)
-    if (quickPeriod === '1m' && d < cutoff(1)) return false
-    if (quickPeriod === '3m' && d < cutoff(3)) return false
-    if (quickPeriod === '6m' && d < cutoff(6)) return false
-    if (quickPeriod === 'this_year' && d < thisYearStart) return false
-    if (!quickPeriod && filterYear && d.getFullYear() !== filterYear) return false
-    if (!quickPeriod && filterMonth && d.getMonth() + 1 !== filterMonth) return false
+  const filtered = data.filter(item => {
+    const createdAt = new Date(item.createdAt)
+    if (quickPeriod === '1m' && createdAt < cutoff(1)) return false
+    if (quickPeriod === '3m' && createdAt < cutoff(3)) return false
+    if (quickPeriod === '6m' && createdAt < cutoff(6)) return false
+    if (quickPeriod === 'this_year' && createdAt < thisYearStart) return false
+    if (!quickPeriod && filterYear && createdAt.getFullYear() !== filterYear) return false
+    if (!quickPeriod && filterMonth && createdAt.getMonth() + 1 !== filterMonth) return false
     if (filterType === 'auto' && item.isManual) return false
     if (filterType === 'manual' && !item.isManual) return false
     return true
   })
 
+  const filteredIds = filtered.map(item => item.id)
+  const selectedIdSet = new Set(selectedIds)
+  const allFilteredSelected = filtered.length > 0 && filtered.every(item => selectedIdSet.has(item.id))
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  const invalidateNumberQueries = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['savedNumbers'] }),
+      queryClient.invalidateQueries({ queryKey: ['myNumberStats'] }),
+      queryClient.invalidateQueries({ queryKey: ['mypage-stats'] }),
+      queryClient.invalidateQueries({ queryKey: ['home-auto'] }),
+      queryClient.invalidateQueries({ queryKey: ['home-manual'] }),
+      queryClient.invalidateQueries({ queryKey: ['social-proof-summary'] }),
+      queryClient.invalidateQueries({ queryKey: ['social-proof-summary-page'] }),
+      queryClient.invalidateQueries({ queryKey: ['social-proof-rounds'] }),
+      queryClient.invalidateQueries({ queryKey: ['social-proof-stories'] }),
+    ])
+  }
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds(current => current.includes(id)
+      ? current.filter(item => item !== id)
+      : [...current, id]
+    )
+  }
+
+  const handleToggleSelectAllFiltered = () => {
+    if (allFilteredSelected) {
+      setSelectedIds([])
+      return
+    }
+
+    setSelectedIds(filteredIds)
+  }
+
+  const handleDeleteNumbers = async (ids: string[], label: string) => {
+    const uniqueIds = Array.from(new Set(ids))
+    if (uniqueIds.length === 0 || isDeleting) return
+
+    const confirmMessage = uniqueIds.length === 1
+      ? `${label}를 삭제할까요?\n연결된 적중 집계도 함께 갱신됩니다.`
+      : `${uniqueIds.length}개 번호를 삭제할까요?\n연결된 적중 집계도 함께 갱신됩니다.`
+
+    if (!window.confirm(confirmMessage)) return
+
+    setIsDeleting(true)
+    setActionMessage(null)
+
+    try {
+      const response = await fetch('/api/lotto/my-numbers', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: uniqueIds }),
+      })
+      const payload = await response.json().catch(() => null)
+
+      if (!response.ok) {
+        setActionMessage({
+          type: 'error',
+          text: payload?.error || '번호 삭제에 실패했어요',
+        })
+        return
+      }
+
+      const deletedIds = Array.isArray(payload?.deletedIds)
+        ? payload.deletedIds.filter((value: unknown): value is string => typeof value === 'string')
+        : uniqueIds
+      const deletedIdSet = new Set(deletedIds)
+
+      setSelectedIds(current => current.filter(id => !deletedIdSet.has(id)))
+      setPage(1)
+      await invalidateNumberQueries()
+      setActionMessage({
+        type: 'success',
+        text: `${payload?.deleted ?? deletedIds.length}개 번호를 삭제했어요`,
+      })
+    } catch {
+      setActionMessage({
+        type: 'error',
+        text: '네트워크 오류로 번호 삭제에 실패했어요',
+      })
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   return (
     <div>
@@ -280,41 +399,153 @@ function SavedNumbers() {
         resultCount={filtered.length}
       />
 
+      <div style={{ background: '#fff', borderBottom: '1px solid #f0f0f0', padding: '10px 16px' }}>
+        {actionMessage && (
+          <div style={{
+            marginBottom: 10,
+            borderRadius: 10,
+            padding: '10px 12px',
+            fontSize: 12,
+            fontWeight: 700,
+            background: actionMessage.type === 'success' ? '#eefaf4' : '#fff5f5',
+            color: actionMessage.type === 'success' ? '#18794e' : '#c24141',
+            border: `1px solid ${actionMessage.type === 'success' ? '#cae9d8' : '#ffd2d2'}`,
+          }}>
+            {actionMessage.text}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => {
+                setIsEditMode(current => !current)
+                setSelectedIds([])
+              }}
+              disabled={isDeleting}
+              style={actionButtonStyle(isEditMode, isDeleting)}
+            >
+              {isEditMode ? '선택 종료' : '선택 삭제'}
+            </button>
+
+            <button
+              onClick={() => handleDeleteNumbers(filteredIds, filtered.length === data.length ? '현재 목록' : '현재 필터 목록')}
+              disabled={filtered.length === 0 || isDeleting}
+              style={actionButtonStyle(false, filtered.length === 0 || isDeleting, true)}
+            >
+              {filtered.length === data.length ? '전체 삭제' : '현재 필터 전체 삭제'}
+            </button>
+
+            {isEditMode && (
+              <button
+                onClick={handleToggleSelectAllFiltered}
+                disabled={filtered.length === 0 || isDeleting}
+                style={actionButtonStyle(allFilteredSelected, filtered.length === 0 || isDeleting)}
+              >
+                {allFilteredSelected ? '전체 해제' : '현재 필터 전체 선택'}
+              </button>
+            )}
+          </div>
+
+          {isEditMode && (
+            <button
+              onClick={() => handleDeleteNumbers(selectedIds, '선택한 번호')}
+              disabled={selectedIds.length === 0 || isDeleting}
+              style={actionButtonStyle(false, selectedIds.length === 0 || isDeleting, true)}
+            >
+              선택 {selectedIds.length}개 삭제
+            </button>
+          )}
+        </div>
+
+        {isEditMode && (
+          <p style={{ fontSize: 11, color: '#888', marginTop: 8 }}>
+            필터한 목록에서 체크한 번호만 한 번에 삭제할 수 있어요.
+          </p>
+        )}
+      </div>
+
       {filtered.length === 0 ? (
         <EmptyState message="해당 조건의 번호가 없어요" />
       ) : (
         <>
-          {paged.map((item: any) => (
-            <div key={item.id} style={{
-              background: '#fff',
-              borderBottom: '1px solid #f0f0f0',
-              padding: '12px 16px',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <span style={{ fontSize: 12, color: '#888' }}>
-                  {item.drawRound ? `${item.drawRound}회차` : '회차 미지정'}
-                  {' · '}
-                  {new Date(item.createdAt).toLocaleDateString('ko-KR')}
-                </span>
-                <span style={{
-                  fontSize: 11, fontWeight: 600,
-                  color: item.isManual ? '#e4a816' : '#007bc3',
-                }}>
-                  {item.isManual ? '수동' : '추천'}
-                </span>
-              </div>
-              <LottoBallSet numbers={item.numbers} size="sm" />
-            </div>
-          ))}
+          {paged.map(item => {
+            const displayRound = resolveNumberDrawRound(item.drawRound, item.generatedDate ?? item.createdAt)
+            return (
+              <div key={item.id} style={{
+                background: '#fff',
+                borderBottom: '1px solid #f0f0f0',
+                padding: '12px 16px',
+              }}>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  {isEditMode && (
+                    <button
+                      onClick={() => handleToggleSelect(item.id)}
+                      style={{
+                        width: 22,
+                        height: 22,
+                        marginTop: 2,
+                        borderRadius: 6,
+                        border: `1px solid ${selectedIdSet.has(item.id) ? '#129f97' : '#d7dde4'}`,
+                        background: selectedIdSet.has(item.id) ? '#129f97' : '#fff',
+                        color: '#fff',
+                        fontSize: 12,
+                        fontWeight: 900,
+                        cursor: 'pointer',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {selectedIdSet.has(item.id) ? '✓' : ''}
+                    </button>
+                  )}
 
-          {/* 페이지네이션 */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                      <span style={{ fontSize: 12, color: '#888' }}>
+                        제{displayRound}회차
+                        {' · '}
+                        {new Date(item.createdAt).toLocaleDateString('ko-KR')}
+                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                        <span style={{
+                          fontSize: 11, fontWeight: 600,
+                          color: item.isManual ? '#e4a816' : '#007bc3',
+                        }}>
+                          {item.isManual ? '수동' : '추천'}
+                        </span>
+                        <button
+                          onClick={() => handleDeleteNumbers([item.id], '이 번호')}
+                          disabled={isDeleting}
+                          style={{
+                            height: 28,
+                            padding: '0 10px',
+                            borderRadius: 999,
+                            border: '1px solid #f1c9c9',
+                            background: '#fff5f5',
+                            color: '#c24141',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: isDeleting ? 'wait' : 'pointer',
+                          }}
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    </div>
+                    <LottoBallSet numbers={item.numbers} size="sm" />
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+
           {totalPages > 1 && (
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16,
               padding: '12px 16px', background: '#fff', borderBottom: '1px solid #f0f0f0',
             }}>
               <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
+                onClick={() => setPage(current => Math.max(1, current - 1))}
                 disabled={page === 1}
                 style={{
                   width: 32, height: 32, borderRadius: 4,
@@ -332,7 +563,7 @@ function SavedNumbers() {
                 </span>
               </span>
               <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                onClick={() => setPage(current => Math.min(totalPages, current + 1))}
                 disabled={page === totalPages}
                 style={{
                   width: 32, height: 32, borderRadius: 4,
@@ -743,6 +974,7 @@ function ScanHistory() {
     queryKey: ['scanHistory'],
     queryFn: async () => {
       const res = await fetch('/api/qr/scan')
+      if (!res.ok) return []
       return res.json()
     },
     staleTime: 60 * 1000,
@@ -750,7 +982,7 @@ function ScanHistory() {
 
   if (isLoading) return <LoadingRows />
   if (!data?.length) return (
-    <EmptyState message="스캔 이력이 없어요" sub="QR 당첨 확인 탭에서 복권을 스캔해보세요" />
+    <EmptyState message="스캔 이력이 없어요" sub="로그인 상태에서 스캔한 복권만 저장돼요. 로그인 없이 확인한 티켓은 이력에 남지 않습니다." />
   )
 
   const now = new Date()

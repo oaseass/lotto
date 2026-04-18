@@ -1,8 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import { useSession } from 'next-auth/react'
+import { useQueryClient } from '@tanstack/react-query'
 import { QrScanner } from '@/components/lotto/QrScanner'
 import { LottoBallSet } from '@/components/lotto/LottoBall'
+import SocialProofShareSheet, { type ShareableOutcome } from '@/components/lotto/SocialProofShareSheet'
 import { AdSlot } from '@/components/ui/AdSlot'
 
 interface SetResult {
@@ -21,6 +24,8 @@ interface ScanResult {
   bonus: number
   sets: SetResult[]
   totalPrize: number
+  savedToHistory?: boolean
+  shareableOutcomes?: ShareableOutcome[]
 }
 
 const RANK_COLOR: Record<number, string> = {
@@ -61,10 +66,14 @@ function formatPrize(n: number): string {
 }
 
 export default function CheckPage() {
+  const { data: session } = useSession()
+  const queryClient = useQueryClient()
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<ScanResult | null>(null)
   const [error, setError] = useState('')
   const [scanned, setScanned] = useState(false)
+  const [selectedShareOutcome, setSelectedShareOutcome] = useState<ShareableOutcome | null>(null)
+  const [shareToast, setShareToast] = useState('')
 
   const handleScan = async (qrData: string) => {
     setIsLoading(true)
@@ -79,6 +88,9 @@ export default function CheckPage() {
       if (!res.ok) { setError(data.error || '처리 중 오류가 발생했습니다'); return }
       setResult(data)
       setScanned(true)
+      if (data.savedToHistory) {
+        queryClient.invalidateQueries({ queryKey: ['scanHistory'] })
+      }
     } catch {
       setError('네트워크 오류가 발생했습니다')
     } finally {
@@ -86,7 +98,13 @@ export default function CheckPage() {
     }
   }
 
-  const handleReset = () => { setResult(null); setError(''); setScanned(false) }
+  const handleReset = () => {
+    setResult(null)
+    setError('')
+    setScanned(false)
+    setSelectedShareOutcome(null)
+    setShareToast('')
+  }
 
   // 최고 등수 계산
   const bestRank = result?.sets.reduce<number | null>((best, s) => {
@@ -103,6 +121,21 @@ export default function CheckPage() {
       }}>
         <h2 style={{ fontSize: 16, fontWeight: 700, color: '#333', marginBottom: 2 }}>QR 당첨 확인</h2>
         <p style={{ fontSize: 12, color: '#888' }}>로또 용지의 QR코드를 스캔하세요</p>
+      </div>
+
+      <div style={{ padding: '10px 16px 0' }}>
+        <div style={{
+          background: session ? '#f3fbf7' : '#fff8f0',
+          border: session ? '1px solid #cfe9d8' : '1px solid #f1dfb3',
+          borderRadius: 8,
+          padding: '10px 12px',
+        }}>
+          <p style={{ fontSize: 12, color: session ? '#256c47' : '#8a6200', lineHeight: 1.55 }}>
+            {session
+              ? '로그인 상태에서 스캔한 복권은 이력 탭에 자동 저장됩니다.'
+              : '로그인 없이 확인한 복권은 결과만 보여주고, 이력 탭에는 저장되지 않습니다.'}
+          </p>
+        </div>
       </div>
 
       {!scanned && !isLoading && (
@@ -189,6 +222,20 @@ export default function CheckPage() {
             )}
 
             <div style={{ padding: '16px' }}>
+              {shareToast && (
+                <div style={{
+                  marginBottom: 12,
+                  background: '#1f2937',
+                  color: '#fff',
+                  borderRadius: 10,
+                  padding: '10px 12px',
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}>
+                  {shareToast}
+                </div>
+              )}
+
               {/* 당첨번호 */}
               <div style={{
                 background: '#f7fbff', padding: '14px 16px',
@@ -201,6 +248,20 @@ export default function CheckPage() {
                   </span>
                 </div>
                 <LottoBallSet numbers={result.drawNumbers} bonus={result.bonus} size="sm" />
+              </div>
+
+              <div style={{
+                background: result.savedToHistory ? '#f3fbf7' : '#fff8f0',
+                border: result.savedToHistory ? '1px solid #cfe9d8' : '1px solid #f1dfb3',
+                borderRadius: 8,
+                padding: '11px 12px',
+                marginBottom: 14,
+              }}>
+                <p style={{ fontSize: 12, color: result.savedToHistory ? '#256c47' : '#8a6200', lineHeight: 1.55 }}>
+                  {result.savedToHistory
+                    ? '이번 스캔 결과는 이력 탭에 저장되었습니다.'
+                    : '이번 스캔은 로그인 없이 확인되어 이력 탭에는 저장되지 않았습니다.'}
+                </p>
               </div>
 
               {/* 게임별 결과 */}
@@ -239,8 +300,33 @@ export default function CheckPage() {
                     checked={true}
                     size="sm"
                   />
+
+                  {result.shareableOutcomes?.find(item => item.set === set.set) && (
+                    <button
+                      onClick={() => setSelectedShareOutcome(result.shareableOutcomes?.find(item => item.set === set.set) ?? null)}
+                      style={{
+                        width: '100%', height: 36, marginTop: 10,
+                        borderRadius: 8, border: '1px solid #d8e6f2', background: '#f7fbff',
+                        color: '#0f5f97', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                      }}
+                    >
+                      {result.shareableOutcomes?.find(item => item.set === set.set)?.shareStatus === 'SHARED' ? '공개 설정 수정' : '이 당첨 이력 공유하기'}
+                    </button>
+                  )}
                 </div>
               ))}
+
+              {result.shareableOutcomes && result.shareableOutcomes.length > 0 && (
+                <div style={{
+                  background: '#fffaf0', border: '1px solid #f1dfb3', borderRadius: 10,
+                  padding: '12px 14px', marginBottom: 14,
+                }}>
+                  <p style={{ fontSize: 13, fontWeight: 800, color: '#845b00', marginBottom: 4 }}>회원 당첨 후기 공개 가능</p>
+                  <p style={{ fontSize: 12, color: '#7a6b4b', lineHeight: 1.5 }}>
+                    이 티켓은 앱 추천 번호와 일치하는 QR 인증 당첨입니다. 후기 공개를 켜면 홈과 리포트에 익명 또는 닉네임으로 노출됩니다.
+                  </p>
+                </div>
+              )}
 
               {/* 합산 결과 — 낙첨 시만 표시 */}
               {!hasPrize && (
@@ -271,6 +357,24 @@ export default function CheckPage() {
           `}</style>
         </div>
       )}
+
+      <SocialProofShareSheet
+        visible={!!selectedShareOutcome}
+        outcome={selectedShareOutcome}
+        onClose={() => setSelectedShareOutcome(null)}
+        onSaved={({ outcomeId, shareStatus, shareNameMode, shareTemplateId }) => {
+          setResult(prev => prev ? {
+            ...prev,
+            shareableOutcomes: prev.shareableOutcomes?.map(item => item.outcomeId === outcomeId ? {
+              ...item,
+              shareStatus,
+              shareNameMode,
+              shareTemplateId,
+            } : item),
+          } : prev)
+          setShareToast(shareStatus === 'SHARED' ? '공개 후기가 저장되었습니다' : '공유 설정이 저장되었습니다')
+        }}
+      />
 
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
       <div style={{ padding: '0 16px', marginTop: 8 }}><AdSlot /></div>

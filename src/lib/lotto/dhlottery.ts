@@ -3,6 +3,8 @@
 // ================================
 
 const LOTTO_HARU_BASE = 'https://api.lotto-haru.kr'
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000
+const FIRST_ROUND_SALES_CLOSE_AT_UTC = Date.UTC(2002, 11, 7, 11, 0, 0)
 
 export interface LottoDrawData {
   round: number
@@ -66,11 +68,25 @@ export async function fetchLatestDraw(): Promise<LottoDrawData | null> {
  * 현재 날짜 기반 회차 추정 (1회차: 2002-12-07)
  */
 export function estimateCurrentRound(): number {
-  const BASE_DATE = new Date('2002-12-07')
-  const today = new Date()
-  const diffMs = today.getTime() - BASE_DATE.getTime()
-  const diffWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000))
-  return diffWeeks + 1
+  return estimateRoundByPurchaseDate(new Date())
+}
+
+/**
+ * 구매 가능 기간 기준 회차 계산.
+ * 토요일 20:00(KST) 이후에는 다음 회차를 반환한다.
+ */
+export function estimateRoundByPurchaseDate(date: Date): number {
+  const diffMs = date.getTime() - FIRST_ROUND_SALES_CLOSE_AT_UTC
+  if (diffMs < 0) return 1
+  return Math.floor(diffMs / WEEK_MS) + 2
+}
+
+export function resolveNumberDrawRound(
+  drawRound: number | null | undefined,
+  baseDate: Date | string
+): number {
+  if (drawRound != null) return drawRound
+  return estimateRoundByPurchaseDate(baseDate instanceof Date ? baseDate : new Date(baseDate))
 }
 
 function parseHaruItem(item: HaruAnalysisItem): LottoDrawData {

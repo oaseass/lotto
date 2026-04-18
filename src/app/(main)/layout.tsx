@@ -14,6 +14,7 @@ const BACK_PAGES: Record<string, string> = {
   '/check': '/home',
   '/stores': '/home',
   '/fortune': '/home',
+  '/report': '/home',
   '/mypage': '/home',
   '/payment/ad-free': '/mypage',
 }
@@ -66,7 +67,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             {isDrawDetail
               ? `제${pathname.split('/')[2]}회 당첨번호`
               : (!isHome && effectiveBackTo
-                ? ({ '/history': '이력', '/check': 'QR확인', '/stores': '판매점', '/fortune': '오늘의 운세', '/mypage': '마이페이지', '/payment/ad-free': '광고제거 결제' } as Record<string, string>)[pathname] ?? '사주로또'
+                ? ({ '/history': '이력', '/check': 'QR확인', '/stores': '판매점', '/fortune': '오늘의 운세', '/report': '회원 당첨 리포트', '/mypage': '마이페이지', '/payment/ad-free': '광고제거 결제' } as Record<string, string>)[pathname] ?? '사주로또'
                 : '사주로또')}
           </span>
 

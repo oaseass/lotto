@@ -9,12 +9,14 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { parseQrCode, calculateResult } from '@/lib/lotto/generator'
 import { fetchLottoDraw, parseDraw } from '@/lib/lotto/dhlottery'
+import { numbersKey, syncRoundSocialProof } from '@/lib/social-proof/service'
 
 // QR 스캔 처리
 export async function POST(req: NextRequest) {
   try {
     const session = await auth()
     const { qrData } = await req.json()
+    let savedToHistory = false
 
     // QR 파싱
     const parsed = parseQrCode(qrData)
@@ -59,14 +61,26 @@ export async function POST(req: NextRequest) {
     // 원본 스캔 번호를 결과에 포함
     const setsWithNumbers = resultWithPrize.map((r, i) => ({ ...r, numbers: sets[i] }))
 
+    let shareableOutcomes: Array<{
+      set: number
+      outcomeId: string
+      round: number
+      rank: number
+      numbers: number[]
+      shareStatus: 'PRIVATE' | 'SHARED' | 'HIDDEN'
+      shareNameMode: 'ANON' | 'NICKNAME'
+      shareTemplateId: string | null
+    }> = []
+
     // 로그인 사용자면 이력 저장 (실패해도 스캔 결과는 반환, 같은 회차 중복 저장 방지)
     if (session?.user?.id) {
       try {
         const existing = await prisma.qrScan.findFirst({
           where: { userId: session.user.id, round },
         })
+        let qrScanId = existing?.id ?? null
         if (!existing) {
-          await prisma.qrScan.create({
+          const created = await prisma.qrScan.create({
             data: {
               userId: session.user.id,
               round,
@@ -74,6 +88,46 @@ export async function POST(req: NextRequest) {
               result: resultWithPrize,
               totalPrize: BigInt(totalPrize),
             },
+          })
+          qrScanId = created.id
+        }
+
+        if (qrScanId) {
+          savedToHistory = true
+          await syncRoundSocialProof(round)
+
+          const outcomes = await prisma.lottoOutcome.findMany({
+            where: {
+              userId: session.user.id,
+              round,
+              verificationStatus: { not: 'NONE' },
+              isWinning: true,
+            },
+            select: {
+              id: true,
+              numbers: true,
+              rank: true,
+              shareStatus: true,
+              shareNameMode: true,
+              shareTemplateId: true,
+            },
+          })
+
+          const outcomeMap = new Map(outcomes.map(outcome => [numbersKey(outcome.numbers), outcome]))
+          shareableOutcomes = setsWithNumbers.flatMap(set => {
+            const matched = outcomeMap.get(numbersKey(set.numbers))
+            if (!matched || matched.rank === null) return []
+
+            return [{
+              set: set.set,
+              outcomeId: matched.id,
+              round,
+              rank: matched.rank,
+              numbers: set.numbers,
+              shareStatus: matched.shareStatus,
+              shareNameMode: matched.shareNameMode,
+              shareTemplateId: matched.shareTemplateId,
+            }]
           })
         }
       } catch (e) {
@@ -88,6 +142,8 @@ export async function POST(req: NextRequest) {
       bonus: draw.bonus,
       sets: setsWithNumbers,
       totalPrize,
+      savedToHistory,
+      shareableOutcomes,
     })
   } catch (error) {
     console.error('QR 스캔 오류:', error)

@@ -8,7 +8,7 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { calculateSaju, calculateOhaengRatio, calculateYongsin } from '@/lib/saju/calculator'
 import { generateLottoNumbers, buildReasonPrompt } from '@/lib/lotto/generator'
-import { estimateCurrentRound } from '@/lib/lotto/dhlottery'
+import { estimateRoundByPurchaseDate } from '@/lib/lotto/dhlottery'
 import Anthropic from '@anthropic-ai/sdk'
 
 const anthropic = process.env.ANTHROPIC_API_KEY
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
 
     // 번호 생성
     const numbers = generateLottoNumbers(cheonjigan, ohaeng, date)
-    const currentRound = estimateCurrentRound()
+    const currentRound = estimateRoundByPurchaseDate(date)
 
     // Claude API로 해설 생성 (API 키 없으면 기본 문구 사용)
     let reason = ''

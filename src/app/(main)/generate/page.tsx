@@ -187,7 +187,7 @@ export default function GeneratePage() {
       const res = await fetch('/api/lotto/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetDate: new Date().toISOString().split('T')[0] }),
+        body: JSON.stringify({ targetDate: new Date().toISOString() }),
       })
       const data = await res.json()
       if (!res.ok) {

@@ -17,27 +17,86 @@ interface QrScannerProps {
 export function QrScanner({ onScan, onError }: QrScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const retryTimerRef = useRef<number | null>(null)
   const [isScanning, setIsScanning] = useState(false)
   const [hasCamera, setHasCamera] = useState(true)
   const [fileProcessing, setFileProcessing] = useState(false)
   const [debugInfo, setDebugInfo] = useState('')
+  const [needsManualStart, setNeedsManualStart] = useState(false)
   const controlsRef = useRef<{ stop: () => void } | null>(null)
   const doneRef = useRef(false)
 
   useEffect(() => {
-    startCamera()
+    void startCamera(false)
     return () => stopCamera()
   }, [])
 
-  const startCamera = async () => {
+  const startCamera = async (fromUserGesture = true) => {
+    const videoElement = videoRef.current
+
+    if (!videoElement) {
+      if (retryTimerRef.current) {
+        window.clearTimeout(retryTimerRef.current)
+      }
+      retryTimerRef.current = window.setTimeout(() => {
+        void startCamera(fromUserGesture)
+      }, 250)
+      return
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setDebugInfo('이 기기에서 카메라를 사용할 수 없습니다.')
+      setHasCamera(false)
+      return
+    }
+
     try {
       doneRef.current = false
+      setHasCamera(true)
+      setNeedsManualStart(false)
+      setDebugInfo(fromUserGesture ? '카메라를 여는 중입니다...' : '카메라 준비 중입니다...')
+      stopCamera(false)
+
+      let stream: MediaStream
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+          audio: false,
+        })
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+      }
+
+      streamRef.current = stream
+      videoElement.srcObject = stream
+      videoElement.muted = true
+      videoElement.playsInline = true
+      videoElement.autoplay = true
+
+      await waitForVideoReady(videoElement)
+
+      try {
+        await videoElement.play()
+      } catch {
+        setNeedsManualStart(true)
+        setDebugInfo('화면을 한 번 눌러 카메라를 시작해주세요.')
+        return
+      }
+
+      const liveTrack = stream.getVideoTracks().find(track => track.readyState === 'live')
+      if (!liveTrack) {
+        throw new Error('카메라 영상이 시작되지 않았습니다.')
+      }
+
       const { BrowserQRCodeReader } = await import('@zxing/browser')
       const reader = new BrowserQRCodeReader()
-      setDebugInfo('ZXing스캔중')
-      const controls = await reader.decodeFromConstraints(
-        { video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } },
-        videoRef.current!,
+      const controls = await reader.decodeFromVideoElement(
+        videoElement,
         (result, _err) => {
           if (result && !doneRef.current) {
             doneRef.current = true
@@ -48,16 +107,80 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
       )
       controlsRef.current = controls
       setIsScanning(true)
+      setDebugInfo('')
     } catch (e) {
-      setDebugInfo(`오류:${String(e).slice(0, 60)}`)
+      const message = getCameraErrorMessage(e)
+      setDebugInfo(message)
       setHasCamera(false)
+      onError?.(message)
     }
   }
 
-  const stopCamera = () => {
+  const stopCamera = (resetMessage = false) => {
     controlsRef.current?.stop()
     controlsRef.current = null
+    streamRef.current?.getTracks().forEach(track => track.stop())
+    streamRef.current = null
+    if (retryTimerRef.current) {
+      window.clearTimeout(retryTimerRef.current)
+      retryTimerRef.current = null
+    }
+    if (videoRef.current) {
+      videoRef.current.pause()
+      videoRef.current.srcObject = null
+    }
+    if (resetMessage) {
+      setDebugInfo('')
+      setNeedsManualStart(false)
+    }
     setIsScanning(false)
+  }
+
+  function getCameraErrorMessage(error: unknown): string {
+    if (error instanceof DOMException) {
+      if (error.name === 'NotAllowedError') return '카메라 권한이 꺼져 있습니다. 브라우저나 앱 설정에서 카메라를 허용한 뒤 다시 시도해주세요.'
+      if (error.name === 'NotReadableError') return '다른 앱이 카메라를 사용 중입니다. 카메라 앱을 종료하고 다시 시도해주세요.'
+      if (error.name === 'NotFoundError') return '사용 가능한 카메라를 찾지 못했습니다.'
+      if (error.name === 'AbortError') return '카메라 시작이 중단되었습니다. 다시 시도해주세요.'
+      return `카메라 오류: ${error.name}`
+    }
+
+    if (error instanceof Error) return error.message
+    return '카메라를 시작하지 못했습니다.'
+  }
+
+  function waitForVideoReady(videoElement: HTMLVideoElement) {
+    if (videoElement.readyState >= 2) {
+      return Promise.resolve()
+    }
+
+    return new Promise<void>((resolve, reject) => {
+      const timeout = window.setTimeout(() => {
+        cleanup()
+        reject(new Error('카메라 화면을 불러오지 못했습니다.'))
+      }, 4000)
+
+      const cleanup = () => {
+        window.clearTimeout(timeout)
+        videoElement.removeEventListener('loadedmetadata', onReady)
+        videoElement.removeEventListener('canplay', onReady)
+        videoElement.removeEventListener('error', onErrorEvent)
+      }
+
+      const onReady = () => {
+        cleanup()
+        resolve()
+      }
+
+      const onErrorEvent = () => {
+        cleanup()
+        reject(new Error('카메라 영상 준비 중 오류가 발생했습니다.'))
+      }
+
+      videoElement.addEventListener('loadedmetadata', onReady, { once: true })
+      videoElement.addEventListener('canplay', onReady, { once: true })
+      videoElement.addEventListener('error', onErrorEvent, { once: true })
+    })
   }
 
   const handleFileCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -121,7 +244,7 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
           }}>
           {fileProcessing ? '인식 중...' : '📷 카메라로 QR 찍기'}
         </button>
-        <button onClick={() => { setHasCamera(true); startCamera() }}
+        <button onClick={() => { setHasCamera(true); void startCamera(true) }}
           style={{
             width: '100%', height: 36, background: '#fff', color: '#555',
             fontSize: 12, border: '1px solid #dcdcdc', borderRadius: 8, cursor: 'pointer',
@@ -135,9 +258,13 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
   return (
     <div>
       <div style={{ position: 'relative', borderRadius: 18, overflow: 'hidden', background: '#000' }}>
-        <video ref={videoRef}
-          style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block' }}
-          playsInline muted />
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', display: 'block', background: '#000' }}
+        />
 
         <div style={{
           position: 'absolute', inset: 0,
@@ -161,6 +288,32 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
             }} />
           </div>
         </div>
+
+        {needsManualStart && (
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'rgba(0,0,0,0.45)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 20,
+          }}>
+            <button
+              onClick={() => void startCamera(true)}
+              style={{
+                height: 42,
+                padding: '0 16px',
+                borderRadius: 999,
+                border: 'none',
+                background: '#f5c842',
+                color: '#222',
+                fontSize: 13,
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              카메라 켜기
+            </button>
+          </div>
+        )}
 
         {isScanning && (
           <div style={{ position: 'absolute', bottom: 16, left: 0, right: 0, textAlign: 'center' }}>

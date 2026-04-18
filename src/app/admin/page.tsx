@@ -7,6 +7,8 @@
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import SocialProofExperimentSummary from '@/components/admin/SocialProofExperimentSummary'
+import SocialProofModerationPanel from '@/components/admin/SocialProofModerationPanel'
 
 export default function AdminPage() {
   const { data: session, status: authStatus } = useSession()
@@ -276,6 +278,10 @@ export default function AdminPage() {
           {status}
         </div>
       )}
+
+      <div style={{ height: 16 }} />
+      <SocialProofExperimentSummary />
+      <SocialProofModerationPanel />
     </div>
   )
 }

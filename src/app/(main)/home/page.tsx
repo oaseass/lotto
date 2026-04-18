@@ -4,8 +4,10 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
-import { estimateCurrentRound } from '@/lib/lotto/dhlottery'
+import { estimateCurrentRound, resolveNumberDrawRound } from '@/lib/lotto/dhlottery'
+import HistoryScopeToggle, { type HistoryScope } from '@/components/lotto/HistoryScopeToggle'
 import { LottoBallSet } from '@/components/lotto/LottoBall'
+import SocialProofCard from '@/components/lotto/SocialProofCard'
 import { useRouter } from 'next/navigation'
 import ManualLottoSheet from '@/components/lotto/ManualLottoSheet'
 import ReadingSheet from '@/components/saju/ReadingSheet'
@@ -28,6 +30,7 @@ interface SavedNumber {
   id: string
   numbers: number[]
   drawRound: number | null
+  generatedDate?: string
   createdAt: string
   rank?: number | null
   reason?: string | null
@@ -121,6 +124,19 @@ function formatPrize(prizeStr: string): string {
   }
   if (n >= 10000000) return `${Math.floor(n / 10000000)}천만원`
   return n.toLocaleString() + '원'
+}
+
+function isCurrentPurchasableNumber(item: SavedNumber, currentRound: number): boolean {
+  return resolveNumberDrawRound(item.drawRound, item.generatedDate ?? item.createdAt) === currentRound
+}
+
+function getDaysUntilDraw(date: Date): number {
+  const day = date.getDay()
+  const hour = date.getHours()
+
+  if (day === 6 && hour >= 20) return 7
+  if (day === 6) return 0
+  return 6 - day
 }
 
 // ── 슬롯머신 애니메이션 모달 ──────────────────────────────────
@@ -498,6 +514,7 @@ function NumberRow({
   const [history, setHistory] = useState<HistoryStats | null>(null)
   const [loadingHistory, setLoadingHistory] = useState(false)
   const numRoles = yongsin ? item.numbers.map(n => getNumRole(n, yongsin)) : null
+  const displayRound = resolveNumberDrawRound(item.drawRound, item.generatedDate ?? item.createdAt)
 
   const loadHistory = async () => {
     if (history || loadingHistory) return
@@ -531,9 +548,9 @@ function NumberRow({
         }}
       >
         {/* 회차 */}
-        <div style={{ width: 44, flexShrink: 0 }}>
-          <p style={{ fontSize: 10, color: '#888', marginBottom: 1 }}>회차</p>
-          <p style={{ fontSize: 13, fontWeight: 700, color: '#333' }}>{item.drawRound ?? '-'}</p>
+        <div style={{ width: 56, flexShrink: 0 }}>
+          <p style={{ fontSize: 10, color: '#888', margin: 0, marginBottom: 1, whiteSpace: 'nowrap' }}>회차</p>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#333', margin: 0, whiteSpace: 'nowrap' }}>제{displayRound}회</p>
         </div>
         {/* 번호 볼 */}
         <div style={{ flex: 1 }}>
@@ -679,6 +696,7 @@ export default function HomePage() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const round = estimateCurrentRound()
+  const [historyFilter, setHistoryFilter] = useState<HistoryScope>('current')
   const [genError, setGenError] = useState('')
   const [toastMsg, setToastMsg] = useState('')
   const [showManualSheet, setShowManualSheet] = useState(false)
@@ -721,7 +739,7 @@ export default function HomePage() {
       const res = await fetch('/api/lotto/my-numbers?type=auto')
       if (!res.ok) return []
       const data = await res.json()
-      return Array.isArray(data) ? data.slice(0, 10) : []
+      return Array.isArray(data) ? data : []
     },
     enabled: !!session,
     staleTime: 60 * 1000,
@@ -733,11 +751,19 @@ export default function HomePage() {
       const res = await fetch('/api/lotto/my-numbers?type=manual')
       if (!res.ok) return []
       const data = await res.json()
-      return Array.isArray(data) ? data.slice(0, 20) : []
+      return Array.isArray(data) ? data : []
     },
     enabled: !!session,
     staleTime: 60 * 1000,
   })
+
+  const visibleSavedList = historyFilter === 'all'
+    ? savedList ?? []
+    : (savedList ?? []).filter(item => isCurrentPurchasableNumber(item, round))
+
+  const visibleManualList = historyFilter === 'all'
+    ? manualList ?? []
+    : (manualList ?? []).filter(item => isCurrentPurchasableNumber(item, round))
 
   // 슬롯머신 시작
   const startAnim = () => {
@@ -797,10 +823,7 @@ export default function HomePage() {
     setSettled([false, false, false, false, false, false])
     queryClient.refetchQueries({ queryKey: ['home-saved'] })
   }
-  const daysLeft = (() => {
-    const d = new Date().getDay()
-    return d === 6 ? 0 : 6 - d
-  })()
+  const daysLeft = getDaysUntilDraw(new Date())
 
   const RANK_LABEL: Record<number, { text: string; bg: string }> = {
     1: { text: '1등', bg: '#dc1f1f' },
@@ -875,6 +898,8 @@ export default function HomePage() {
           </button>
         </div>
       )}
+
+      <SocialProofCard />
 
       {/* ── 최신 당첨번호 (클릭 → 상세) ── */}
       <Link href={draw ? `/draw/${draw.round}` : `/draw/${round - 1}`} style={{ textDecoration: 'none', display: 'block' }}>
@@ -1027,6 +1052,8 @@ export default function HomePage() {
         )}
       </h3>
 
+      {session && <HistoryScopeToggle value={historyFilter} currentRound={round} onChange={setHistoryFilter} />}
+
       {/* 번호 목록 */}
       {!session ? (
         <div style={{
@@ -1068,16 +1095,16 @@ export default function HomePage() {
             </div>
           ))}
         </div>
-      ) : savedList && savedList.length > 0 ? (
+      ) : visibleSavedList.length > 0 ? (
         <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', marginBottom: 8 }}>
           <p style={{ fontSize: 11, color: '#888', padding: '6px 16px 2px', borderBottom: '1px solid #f5f5f5' }}>
             💡 번호를 탭하면 사주 근거를 볼 수 있어요
           </p>
-          {savedList.map((item, i) => (
+          {visibleSavedList.map((item, i) => (
             <NumberRow
               key={item.id}
               item={item}
-              isLast={i === savedList.length - 1}
+              isLast={i === visibleSavedList.length - 1}
               yongsin={sajuProfile?.yongsin ?? null}
               rankLabel={RANK_LABEL}
             />
@@ -1101,7 +1128,11 @@ export default function HomePage() {
           padding: '32px 20px', textAlign: 'center', marginBottom: 8,
         }}>
           <p style={{ fontSize: 13, color: '#888', marginBottom: 16, lineHeight: 1.6 }}>
-            아직 생성된 번호가 없습니다.<br/>사주 기반 번호를 뽑아보세요!
+            {historyFilter === 'current'
+              ? `제${round}회 구매 가능 번호가 없습니다.`
+              : '아직 생성된 번호가 없습니다.'}
+            <br/>
+            {historyFilter === 'current' ? '필터를 전체 이력으로 바꾸거나 새 번호를 뽑아보세요!' : '사주 기반 번호를 뽑아보세요!'}
           </p>
           <button onClick={handleGenerate} style={{
             height: 40, padding: '0 28px',
@@ -1138,6 +1169,8 @@ export default function HomePage() {
             </button>
           </div>
 
+          <HistoryScopeToggle value={historyFilter} currentRound={round} onChange={setHistoryFilter} />
+
           {loadingManual ? (
             <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', marginBottom: 8 }}>
               {[...Array(2)].map((_, i) => (
@@ -1151,16 +1184,16 @@ export default function HomePage() {
                 </div>
               ))}
             </div>
-          ) : manualList && manualList.length > 0 ? (
+          ) : visibleManualList.length > 0 ? (
             <div style={{ background: '#fff', borderBottom: '1px solid #dcdcdc', marginBottom: 8 }}>
               <p style={{ fontSize: 11, color: '#888', padding: '6px 16px 2px', borderBottom: '1px solid #f5f5f5' }}>
                 ✏️ 직접 입력한 번호 · 탭하면 당첨이력을 확인할 수 있어요
               </p>
-              {manualList.map((item, i) => (
+              {visibleManualList.map((item, i) => (
                 <NumberRow
                   key={item.id}
                   item={item}
-                  isLast={i === manualList.length - 1}
+                  isLast={i === visibleManualList.length - 1}
                   yongsin={null}
                   rankLabel={RANK_LABEL}
                 />
@@ -1182,7 +1215,11 @@ export default function HomePage() {
               padding: '24px 20px', textAlign: 'center', marginBottom: 8,
             }}>
               <p style={{ fontSize: 13, color: '#888', marginBottom: 14, lineHeight: 1.6 }}>
-                직접 고른 번호를 저장하고<br/>과거 당첨이력을 확인해보세요
+                {historyFilter === 'current'
+                  ? `제${round}회 구매 가능 수동 번호가 없습니다.`
+                  : '직접 고른 번호를 저장하고'}
+                <br/>
+                {historyFilter === 'current' ? '전체 이력으로 전환하거나 새로 입력해보세요' : '과거 당첨이력을 확인해보세요'}
               </p>
               <button onClick={() => setShowManualSheet(true)} style={{
                 height: 40, padding: '0 28px',

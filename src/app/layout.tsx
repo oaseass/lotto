@@ -2,7 +2,7 @@
 // 루트 레이아웃
 // ================================
 
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { Providers } from '@/components/ui/Providers'
 import { SplashScreen } from '@/components/ui/SplashScreen'
@@ -13,7 +13,6 @@ export const metadata: Metadata = {
   title: '사주로또 - 내 사주에 맞는 로또 번호',
   description: '생년월일과 생시를 입력하면 사주에 맞는 로또 번호를 추출해드립니다',
   manifest: '/manifest.json',
-  themeColor: '#F5C842',
   icons: {
     icon: '/favicon.png',
     apple: '/icon-192.png',
@@ -23,6 +22,10 @@ export const metadata: Metadata = {
     description: '내 사주에 맞는 로또 번호',
     type: 'website',
   },
+}
+
+export const viewport: Viewport = {
+  themeColor: '#F5C842',
 }
 
 export default async function RootLayout({

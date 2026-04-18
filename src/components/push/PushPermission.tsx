@@ -7,15 +7,18 @@
 
 import { useEffect } from 'react'
 import { useSession } from 'next-auth/react'
+import { usePathname } from 'next/navigation'
 
 const VAPID_KEY = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY
 
 export function PushPermission() {
   const { data: session } = useSession()
+  const pathname = usePathname()
 
   useEffect(() => {
     // Firebase 미설정 또는 비로그인이면 스킵
     if (!session || !VAPID_KEY || !process.env.NEXT_PUBLIC_FIREBASE_API_KEY) return
+    if (pathname === '/check') return
     if (!('Notification' in window) || !('serviceWorker' in navigator)) return
     if (Notification.permission === 'denied') return
 
@@ -48,7 +51,7 @@ export function PushPermission() {
         // 알림 권한 요청 (기존에 granted면 바로 진행)
         const permission = Notification.permission === 'granted'
           ? 'granted'
-          : await Notification.requestPermission()
+          : 'default'
 
         if (permission !== 'granted' || !mounted) return
 
@@ -76,7 +79,7 @@ export function PushPermission() {
 
     init()
     return () => { mounted = false }
-  }, [session])
+  }, [session, pathname])
 
   return null
 }

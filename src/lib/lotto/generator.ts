@@ -13,7 +13,8 @@ import {
 import type { Cheonjigan, OhaengRatio, Ohaeng } from '@/types'
 
 /**
- * 사주 기반 로또 번호 생성 (결정론적 - 같은 사주+날짜 = 같은 번호)
+ * 사주 기반 로또 번호 생성
+ * 같은 사주/같은 날짜라도 요청별 엔트로피를 섞어 다른 조합이 나올 수 있게 한다.
  */
 export function generateLottoNumbers(
   cheonjigan: Cheonjigan,
@@ -53,7 +54,8 @@ export function generateLottoNumbers(
 }
 
 /**
- * 시드 생성 (사주+날짜 기반, 결정론적 — 같은 사주+날짜 = 항상 같은 번호)
+ * 시드 생성
+ * 사주/날짜 기반 축을 유지하되 요청 시점 엔트로피를 섞어 반복 생성 시 고정 조합을 피한다.
  */
 function createSeed(cheonjigan: Cheonjigan, targetDate: Date): number {
   const dateNum = targetDate.getFullYear() * 10000 +
@@ -62,8 +64,19 @@ function createSeed(cheonjigan: Cheonjigan, targetDate: Date): number {
 
   const ilju = cheonjigan.day
   const ilja = ilju.cheongan.charCodeAt(0) + ilju.jiji.charCodeAt(0)
+  const timeEntropy = targetDate.getTime() % 0x100000000
+  const requestEntropy = createRequestEntropy()
+  const combined = (dateNum ^ ilja ^ timeEntropy ^ requestEntropy) >>> 0
 
-  return (dateNum + ilja) % 99991
+  return combined === 0 ? 1 : combined
+}
+
+function createRequestEntropy(): number {
+  if (typeof globalThis.crypto?.getRandomValues === 'function') {
+    return globalThis.crypto.getRandomValues(new Uint32Array(1))[0] ?? 1
+  }
+
+  return Math.floor(Math.random() * 0x100000000) || 1
 }
 
 /**

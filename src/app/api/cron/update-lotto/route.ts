@@ -8,6 +8,7 @@ export const maxDuration = 60
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { sendPush } from '@/lib/push/sender'
+import { syncRoundSocialProof } from '@/lib/social-proof/service'
 
 async function fetchDraw(round: number) {
   for (let i = 0; i < 3; i++) {
@@ -184,6 +185,15 @@ export async function GET(req: NextRequest) {
           data: { drawRound: data.drwNo },
         })
         log.push(`번호 이력 ${thisWeekNums.length}개 drawRound 연결`)
+      }
+
+      try {
+        const socialProof = await syncRoundSocialProof(data.drwNo)
+        const appWins = socialProof.rankCounts[1] + socialProof.rankCounts[2] + socialProof.rankCounts[3] + socialProof.rankCounts[4] + socialProof.rankCounts[5]
+        const verifiedWins = socialProof.verifiedRankCounts[1] + socialProof.verifiedRankCounts[2] + socialProof.verifiedRankCounts[3] + socialProof.verifiedRankCounts[4] + socialProof.verifiedRankCounts[5]
+        log.push(`앱 성적 집계: 추천 ${socialProof.eligibleAutoSetCount}세트, 당첨 ${appWins}건, QR 인증 ${verifiedWins}건`)
+      } catch (socialProofError: any) {
+        log.push(`앱 성적 집계 오류(무시): ${socialProofError.message}`)
       }
 
       // 유저별 집계

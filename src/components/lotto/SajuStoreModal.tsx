@@ -33,7 +33,7 @@ interface Props {
 
 function buildReasonLines(store: StoreResult, weakElements: string[]): string[] {
   const lines: string[] = []
-  const regionWeights = [50, 30, 20]
+  const regionWeights = [30, 20, 10]
   const numWeights = [20, 12, 8]
   const rankLabel = ['핵심 용신', '보완 기운', '3차 보완']
 

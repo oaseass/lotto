@@ -46,8 +46,8 @@ function calcSajuScore(
   const regionOhaeng = getRegionOhaeng(store.address)
   const numOhaeng = getNumOhaeng(store.addressNumber ?? null)
 
-  // 지역 오행: 1순위 50점, 2순위 30점, 3순위 20점
-  const regionWeights = [50, 30, 20]
+  // 지역 오행: 1순위 30점, 2순위 20점, 3순위 10점
+  const regionWeights = [30, 20, 10]
   // 번지 수리: 1순위 20점, 2순위 12점, 3순위 8점
   const numWeights = [20, 12, 8]
 
