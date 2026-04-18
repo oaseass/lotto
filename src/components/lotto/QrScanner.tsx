@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 
+const NATIVE_SCAN_INTENT_URL = 'intent://scan#Intent;scheme=sajulotto;package=com.sajulotto1.app;S.browser_fallback_url=https%3A%2F%2Flotto-two-dun.vercel.app%2Fcheck%3FnativeScanError%3Dbrowser-fallback;end'
+
 declare global {
   class BarcodeDetector {
     constructor(options?: { formats: string[] })
@@ -24,14 +26,32 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
   const [fileProcessing, setFileProcessing] = useState(false)
   const [debugInfo, setDebugInfo] = useState('')
   const [needsManualStart, setNeedsManualStart] = useState(false)
+  const [isNativeScannerAvailable, setIsNativeScannerAvailable] = useState(false)
+  const [useBrowserCamera, setUseBrowserCamera] = useState(false)
   const controlsRef = useRef<{ stop: () => void } | null>(null)
   const doneRef = useRef(false)
 
   useEffect(() => {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+      || (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+    const canUseNativeScanner = isStandalone && /Android/i.test(window.navigator.userAgent)
+
+    setIsNativeScannerAvailable(canUseNativeScanner)
+
+    if (canUseNativeScanner) {
+      setNeedsManualStart(false)
+      setDebugInfo('')
+      return () => stopCamera()
+    }
+
     setNeedsManualStart(true)
     setDebugInfo('버튼을 눌러 카메라 권한을 허용해주세요.')
     return () => stopCamera()
   }, [])
+
+  const openNativeScanner = () => {
+    window.location.href = NATIVE_SCAN_INTENT_URL
+  }
 
   const startCamera = async (fromUserGesture = true) => {
     const videoElement = videoRef.current
@@ -219,6 +239,53 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
     }
   }
 
+  if (isNativeScannerAvailable && !useBrowserCamera) {
+    return (
+      <div style={{
+        padding: '28px 20px', textAlign: 'center',
+        background: '#fff', border: '1px solid #dcdcdc', borderRadius: 12,
+      }}>
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#007bc3" strokeWidth="1.5"
+          style={{ display: 'block', margin: '0 auto 12px' }}>
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+        <p style={{ fontSize: 15, fontWeight: 700, color: '#333', marginBottom: 6 }}>앱 카메라로 QR 스캔</p>
+        <p style={{ fontSize: 12, color: '#666', marginBottom: 18, lineHeight: 1.55 }}>
+          비교한 앱처럼 Android 권한 팝업을 직접 띄우는 네이티브 스캐너를 사용합니다.
+        </p>
+        <button onClick={openNativeScanner}
+          style={{
+            width: '100%', height: 44, background: '#007bc3',
+            color: '#fff', fontSize: 13, fontWeight: 700,
+            border: 'none', borderRadius: 8, cursor: 'pointer', marginBottom: 8,
+          }}>
+          앱 카메라로 QR 스캔 시작
+        </button>
+        <button onClick={() => {
+          setUseBrowserCamera(true)
+          setNeedsManualStart(true)
+          setDebugInfo('브라우저 카메라는 버튼을 눌러 권한을 요청해야 합니다.')
+        }}
+          style={{
+            width: '100%', height: 36, background: '#fff', color: '#555',
+            fontSize: 12, border: '1px solid #dcdcdc', borderRadius: 8, cursor: 'pointer', marginBottom: 8,
+          }}>
+          브라우저 카메라로 시도
+        </button>
+        <input ref={fileInputRef} type="file" accept="image/*" capture="environment"
+          onChange={handleFileCapture} style={{ display: 'none' }} />
+        <button onClick={() => fileInputRef.current?.click()} disabled={fileProcessing}
+          style={{
+            width: '100%', height: 36, background: '#f5f5f5', color: '#555',
+            fontSize: 12, border: '1px solid #dcdcdc', borderRadius: 8, cursor: 'pointer',
+          }}>
+          {fileProcessing ? '인식 중...' : '사진으로 QR 읽기'}
+        </button>
+      </div>
+    )
+  }
+
   if (!hasCamera) {
     return (
       <div style={{
@@ -235,6 +302,16 @@ export function QrScanner({ onScan, onError }: QrScannerProps) {
         <p style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>
           설정 &gt; Chrome &gt; 카메라 권한을 허용하거나<br/>아래 버튼으로 사진을 찍어 QR을 읽어보세요
         </p>
+        {isNativeScannerAvailable && (
+          <button onClick={openNativeScanner}
+            style={{
+              width: '100%', height: 44, background: '#007bc3',
+              color: '#fff', fontSize: 13, fontWeight: 700,
+              border: 'none', borderRadius: 8, cursor: 'pointer', marginBottom: 8,
+            }}>
+            앱 카메라로 다시 스캔
+          </button>
+        )}
         <input ref={fileInputRef} type="file" accept="image/*" capture="environment"
           onChange={handleFileCapture} style={{ display: 'none' }} />
         <button onClick={() => fileInputRef.current?.click()} disabled={fileProcessing}

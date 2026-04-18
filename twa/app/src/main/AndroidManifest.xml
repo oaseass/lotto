@@ -161,6 +161,22 @@
             
         </activity>
 
+        <activity
+            android:name=".NativeQrScanActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:screenOrientation="portrait">
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="sajulotto"
+                    android:host="scan" />
+            </intent-filter>
+        </activity>
+
         <activity android:name="com.google.androidbrowserhelper.trusted.FocusActivity" />
 
         <activity android:name="com.google.androidbrowserhelper.trusted.WebViewFallbackActivity"
@@ -178,8 +194,8 @@
 
         <service
             android:name=".DelegationService"
-            android:enabled="@bool/enableNotification"
-            android:exported="@bool/enableNotification">
+            android:enabled="true"
+            android:exported="true">
 
             
                 <meta-data
@@ -190,6 +206,8 @@
             <intent-filter>
                 <action android:name="android.support.customtabs.trusted.TRUSTED_WEB_ACTIVITY_SERVICE"/>
                 <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.support.customtabs.category.LocationDelegation"/>
+                <category android:name="android.support.customtabs.category.NotificationDelegation"/>
             </intent-filter>
         </service>
 

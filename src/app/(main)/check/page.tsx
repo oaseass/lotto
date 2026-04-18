@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { QrScanner } from '@/components/lotto/QrScanner'
 import { LottoBallSet } from '@/components/lotto/LottoBall'
 import SocialProofShareSheet, { type ShareableOutcome } from '@/components/lotto/SocialProofShareSheet'
@@ -68,12 +69,15 @@ function formatPrize(n: number): string {
 export default function CheckPage() {
   const { data: session } = useSession()
   const queryClient = useQueryClient()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<ScanResult | null>(null)
   const [error, setError] = useState('')
   const [scanned, setScanned] = useState(false)
   const [selectedShareOutcome, setSelectedShareOutcome] = useState<ShareableOutcome | null>(null)
   const [shareToast, setShareToast] = useState('')
+  const handledNativeQueryRef = useRef<string | null>(null)
 
   const handleScan = async (qrData: string) => {
     setIsLoading(true)
@@ -105,6 +109,32 @@ export default function CheckPage() {
     setSelectedShareOutcome(null)
     setShareToast('')
   }
+
+  useEffect(() => {
+    const nativeQrData = searchParams.get('qrData')
+    const nativeScanError = searchParams.get('nativeScanError')
+    const currentKey = `${nativeQrData ?? ''}|${nativeScanError ?? ''}`
+
+    if (!nativeQrData && !nativeScanError) {
+      return
+    }
+
+    if (handledNativeQueryRef.current === currentKey) {
+      return
+    }
+
+    handledNativeQueryRef.current = currentKey
+
+    if (nativeQrData) {
+      void handleScan(nativeQrData)
+    } else if (nativeScanError === 'permission-denied') {
+      setError('앱에서 카메라 권한이 거부되었습니다. 설정에서 카메라를 허용한 뒤 다시 시도해주세요.')
+    } else if (nativeScanError === 'browser-fallback') {
+      setError('앱 스캐너를 열지 못했습니다. 다시 시도해주세요.')
+    }
+
+    router.replace('/check')
+  }, [router, searchParams])
 
   // 최고 등수 계산
   const bestRank = result?.sets.reduce<number | null>((best, s) => {
